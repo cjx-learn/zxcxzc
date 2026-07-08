@@ -1,0 +1,23 @@
+server:
+  port: 8206
+spring:
+  application:
+    name: mall-analytics
+  datasource:
+    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/mall?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false}
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:root}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    virtual-host: ${RABBITMQ_VHOST:/mall}
+    username: ${RABBITMQ_USERNAME:mall}
+    password: ${RABBITMQ_PASSWORD:mall}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+  endpoint:
+    health:
+      show-details: always

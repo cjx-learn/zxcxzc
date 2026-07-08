@@ -1,6 +1,31 @@
 # Maven #
 target/
 
+# Runtime/build artifacts #
+*.jar
+*.class
+*.log
+logs/
+
+# Node / generated frontend artifacts #
+node_modules/
+dist/
+
+# Python #
+__pycache__/
+*.pyc
+
+# ML data and generated model outputs #
+ml-recommend/data/UserBehavior.csv
+ml-recommend/output/
+ml-recommend/test-output/
+*.pt
+
+# Local secrets / env #
+.env
+*.pem
+*.key
+
 # IDEA #
 .idea/
 *.iml
