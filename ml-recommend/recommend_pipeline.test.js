@@ -37,3 +37,24 @@ for (const expected of [
 }
 
 console.log("recommend pipeline checks passed");
+
+const mappedUsersResult = spawnSync(
+  "python",
+  [
+    path.join(__dirname, "run_recommend_pipeline.py"),
+    "--events",
+    "ml-recommend/data/sampled_events.csv",
+    "--output-dir",
+    "ml-recommend/output",
+    "--mall-user-ids",
+    "1,3,4",
+    "--dry-run",
+  ],
+  { cwd: root, encoding: "utf8" }
+);
+
+assert.strictEqual(mappedUsersResult.status, 0, mappedUsersResult.stderr || mappedUsersResult.stdout);
+assert(
+  mappedUsersResult.stdout.includes("--mall-user-ids 1,3,4"),
+  "dry run should pass local mall user ids into export commands"
+);

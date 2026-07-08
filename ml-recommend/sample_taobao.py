@@ -16,6 +16,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Sample Taobao UserBehavior.csv for local recommendation training.")
     parser.add_argument("--input", required=True, help="Path to UserBehavior.csv")
     parser.add_argument("--output-dir", required=True, help="Output directory")
+    parser.add_argument("--strategy", choices=["first", "active"], default="first", help="Sampling strategy")
     parser.add_argument("--max-users", type=int, default=5000)
     parser.add_argument("--max-items", type=int, default=10000)
     parser.add_argument("--max-events", type=int, default=300000)
@@ -41,7 +42,23 @@ def find_latest_timestamp(path):
     return latest
 
 
-def sample_events(args, cutoff_ts, end_ts):
+def parse_valid_event(row, cutoff_ts, end_ts):
+    if len(row) < 5:
+        return None
+    user_id, item_id, category_id, behavior, timestamp = row[:5]
+    event_type = EVENT_MAP.get(behavior)
+    if not event_type:
+        return None
+    try:
+        ts = int(timestamp)
+    except ValueError:
+        return None
+    if ts < cutoff_ts or (end_ts is not None and ts > end_ts):
+        return None
+    return user_id, item_id, category_id, event_type, ts
+
+
+def write_sampled_events(args, cutoff_ts, end_ts, selected_users=None, selected_items=None):
     users = set()
     items = set()
     event_counts = Counter()
@@ -55,24 +72,20 @@ def sample_events(args, cutoff_ts, end_ts):
 
         written = 0
         for row in reader:
-            if len(row) < 5:
+            parsed = parse_valid_event(row, cutoff_ts, end_ts)
+            if parsed is None:
                 continue
-            user_id, item_id, category_id, behavior, timestamp = row[:5]
-            event_type = EVENT_MAP.get(behavior)
-            if not event_type:
+            user_id, item_id, category_id, event_type, ts = parsed
+            if selected_users is not None and user_id not in selected_users:
                 continue
-            try:
-                ts = int(timestamp)
-            except ValueError:
-                continue
-            if ts < cutoff_ts or (end_ts is not None and ts > end_ts):
+            if selected_items is not None and item_id not in selected_items:
                 continue
 
             known_user = user_id in users
             known_item = item_id in items
-            if not known_user and len(users) >= args.max_users:
+            if selected_users is None and not known_user and len(users) >= args.max_users:
                 continue
-            if not known_item and len(items) >= args.max_items:
+            if selected_items is None and not known_item and len(items) >= args.max_items:
                 continue
 
             users.add(user_id)
@@ -87,6 +100,32 @@ def sample_events(args, cutoff_ts, end_ts):
     return output_path, len(users), len(items), written, event_counts
 
 
+def sample_events_first(args, cutoff_ts, end_ts):
+    return write_sampled_events(args, cutoff_ts, end_ts)
+
+
+def sample_events_active(args, cutoff_ts, end_ts):
+    user_counts = Counter()
+    item_counts = Counter()
+    with open(args.input, "r", encoding="utf-8", newline="") as src:
+        reader = csv.reader(src)
+        for row in reader:
+            parsed = parse_valid_event(row, cutoff_ts, end_ts)
+            if parsed is None:
+                continue
+            user_id, item_id, _, _, _ = parsed
+            user_counts[user_id] += 1
+            item_counts[item_id] += 1
+
+    selected_users = {
+        user_id for user_id, _ in sorted(user_counts.items(), key=lambda item: (-item[1], item[0]))[:args.max_users]
+    }
+    selected_items = {
+        item_id for item_id, _ in sorted(item_counts.items(), key=lambda item: (-item[1], item[0]))[:args.max_items]
+    }
+    return write_sampled_events(args, cutoff_ts, end_ts, selected_users, selected_items)
+
+
 def main():
     args = parse_args()
     latest_ts = args.end_ts or find_latest_timestamp(args.input)
@@ -95,7 +134,10 @@ def main():
     cutoff_ts = latest_ts - args.recent_days * 86400
     if args.start_ts is not None:
         cutoff_ts = max(cutoff_ts, args.start_ts)
-    output_path, user_count, item_count, event_count, event_counts = sample_events(args, cutoff_ts, args.end_ts)
+    if args.strategy == "active":
+        output_path, user_count, item_count, event_count, event_counts = sample_events_active(args, cutoff_ts, args.end_ts)
+    else:
+        output_path, user_count, item_count, event_count, event_counts = sample_events_first(args, cutoff_ts, args.end_ts)
     print(f"latest_timestamp={latest_ts}")
     print(f"cutoff_timestamp={cutoff_ts}")
     print(f"output={output_path}")

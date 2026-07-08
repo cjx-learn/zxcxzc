@@ -171,6 +171,7 @@ mall-swarm
 | `docs/data-dictionary.md` | 核心数据表和字段说明 |
 | `docs/api-test-report.md` | 主要接口与测试样例 |
 | `docs/final-delivery-checklist.md` | 最终提交材料检查清单 |
+| `docs/recommendation-training-record.md` | 推荐算法训练、评估和部署记录 |
 
 ## 本地构建与验证
 

@@ -18,6 +18,7 @@ def parse_args():
     parser.add_argument("--epochs", type=int, default=8)
     parser.add_argument("--negative-ratio", type=int, default=4)
     parser.add_argument("--mall-product-ids", default="37,26,46,45,44,43,42,41,40,39")
+    parser.add_argument("--mall-user-ids", default="", help="Comma-separated local mall user ids for demo mapping")
     parser.add_argument("--max-users", type=int, default=30)
     parser.add_argument("--dry-run", action="store_true", help="Print commands without executing them")
     return parser.parse_args()
@@ -141,6 +142,8 @@ def main():
                 "model_itemcf",
                 "--mall-product-ids",
                 args.mall_product_ids,
+                "--mall-user-ids",
+                args.mall_user_ids,
                 "--max-users",
                 str(args.max_users),
                 "--reason-prefix",
@@ -160,6 +163,8 @@ def main():
                 "model_ncf",
                 "--mall-product-ids",
                 args.mall_product_ids,
+                "--mall-user-ids",
+                args.mall_user_ids,
                 "--max-users",
                 str(args.max_users),
                 "--reason-prefix",
@@ -179,6 +184,8 @@ def main():
                 "model_deepfm",
                 "--mall-product-ids",
                 args.mall_product_ids,
+                "--mall-user-ids",
+                args.mall_user_ids,
                 "--max-users",
                 str(args.max_users),
                 "--reason-prefix",
