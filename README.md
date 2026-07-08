@@ -1,176 +1,231 @@
-# mall-swarm
+# 基于电商用户行为数据的商品推荐与用户行为分析系统
 
-<p>
-  <a href="#公众号"><img src="http://macro-oss.oss-cn-shenzhen.aliyuncs.com/mall/badge/%E5%85%AC%E4%BC%97%E5%8F%B7-macrozheng-blue.svg" alt="公众号"></a>
-  <a href="#公众号"><img src="http://macro-oss.oss-cn-shenzhen.aliyuncs.com/mall/badge/%E4%BA%A4%E6%B5%81-%E5%BE%AE%E4%BF%A1%E7%BE%A4-2BA245.svg" alt="交流"></a>
-  <a href="https://github.com/macrozheng/mall-learning"><img src="http://macro-oss.oss-cn-shenzhen.aliyuncs.com/mall/badge/%E5%AD%A6%E4%B9%A0%E6%95%99%E7%A8%8B-mall--learning-green.svg" alt="学习教程"></a>
-  <a href="https://github.com/macrozheng/mall"><img src="http://macro-oss.oss-cn-shenzhen.aliyuncs.com/mall/badge/%E5%90%8E%E5%8F%B0%E9%A1%B9%E7%9B%AE-mall-blue.svg" alt="后台项目"></a>
-  <a href="https://github.com/macrozheng/mall-admin-web"><img src="http://macro-oss.oss-cn-shenzhen.aliyuncs.com/mall/badge/%E5%89%8D%E7%AB%AF%E9%A1%B9%E7%9B%AE-mall--admin--web-green.svg" alt="前端项目"></a>
-  <a href="https://github.com/macrozheng/mall-app-web"><img src="https://macro-oss.oss-cn-shenzhen.aliyuncs.com/mall/badge/%E5%89%8D%E5%8F%B0%E5%95%86%E5%9F%8E%E9%A1%B9%E7%9B%AE-mall--app--web-green.svg" alt="前台商城项目"></a>
-  <a href="https://gitee.com/macrozheng/mall-swarm"><img src="http://macro-oss.oss-cn-shenzhen.aliyuncs.com/mall/badge/%E7%A0%81%E4%BA%91-%E9%A1%B9%E7%9B%AE%E5%9C%B0%E5%9D%80-orange.svg" alt="码云"></a>
-</p>
+本项目基于开源电商微服务项目 [`macrozheng/mall-swarm`](https://github.com/macrozheng/mall-swarm) 进行二次开发，课程作业主题为：
 
-## 友情提示
-
-> 1. **快速体验项目**：[在线访问地址](https://cloud.macrozheng.com/admin/index.html) 。
-> 2. **全套学习教程**：[《mall-swarm微服务学习教程》](https://cloud.macrozheng.com) 。
-> 3. **视频教程**：[《mall-swarm视频教程》](https://cloud.macrozheng.com/video/) 。
-> 4. **Spring Cloud全套教程**：[《SpringCloud学习教程》](https://github.com/macrozheng/springcloud-learning) 。
-> 5. **分支说明**：`master`分支基于Spring Cloud 2025+Spring Boot 3.5，`dev-v2`分支基于Spring Cloud 2021+Spring Boot 2.7。
-
-## 项目简介
-
-`mall-swarm`是一套微服务商城系统，采用了 Spring Cloud 2025 & Alibaba、Spring Boot 3.5、Sa-Token、MyBatis、Elasticsearch、Docker、Kubernetes等核心技术，同时提供了基于Vue的管理后台方便快速搭建系统。`mall-swarm`在电商业务的基础集成了注册中心、配置中心、监控中心、网关等系统功能。文档齐全，附带全套Spring Cloud教程。
-
-## 项目演示
-
-### 后台管理系统
-
-前端项目`mall-admin-web`地址：https://github.com/macrozheng/mall-admin-web
-
-项目演示地址： [https://www.macrozheng.com/admin/index.html](https://www.macrozheng.com/admin/index.html)
-
-![后台管理系统功能演示](./document/resource/mall_admin_show.png)
-
-### 前台商城系统
-
-前端项目`mall-app-web`地址：https://github.com/macrozheng/mall-app-web
-
-项目演示地址（将浏览器切换为手机模式效果更佳）：[https://www.macrozheng.com/app/](https://www.macrozheng.com/app/)
-
-![前台商城系统功能演示](./document/resource/re_mall_app_show.jpg)
-
-## 项目架构
-
-### 系统架构
-
-![系统架构图](./document/resource/mall_micro_service_arch.jpg)
-
-### 业务架构
-
-![业务架构图](./document/resource/re_mall_business_arch.jpg)
-
-### 组织结构
-
-``` lua
-mall
-├── mall-common -- 工具类及通用代码模块
-├── mall-mbg -- MyBatisGenerator生成的数据库操作代码模块
-├── mall-auth -- 基于Spring Security Oauth2的统一的认证中心
-├── mall-gateway -- 基于Spring Cloud Gateway的微服务API网关服务
-├── mall-monitor -- 基于Spring Boot Admin的微服务监控中心
-├── mall-admin -- 后台管理系统服务
-├── mall-search -- 基于Elasticsearch的商品搜索系统服务
-├── mall-portal -- 移动端商城系统服务
-├── mall-demo -- 微服务远程调用测试服务
-└── config -- 配置中心存储的配置
+```text
+基于电商用户行为数据的商品推荐与用户行为分析系统设计与实现
 ```
 
-## 技术选型
+项目不是只展示原商城功能，而是在原有商品、用户、订单等业务基础上，补充用户行为采集、用户画像、商品画像、推荐算法、算法评估、分析看板和用户端推荐展示，形成一条面向课程答辩的完整数据应用链路。
 
-### 后端技术
+## 在线演示
 
-| 技术                   | 说明                 | 官网                                                 |
-| ---------------------- | -------------------- | ---------------------------------------------------- |
-| Spring Cloud           | 微服务框架           | https://spring.io/projects/spring-cloud              |
-| Spring Cloud Alibaba   | 微服务框架           | https://github.com/alibaba/spring-cloud-alibaba      |
-| Spring Boot            | 容器+MVC框架         | https://spring.io/projects/spring-boot               |
-| Sa-Token               | 认证和授权框架       | https://github.com/dromara/Sa-Token                   |
-| MyBatis                | ORM框架              | http://www.mybatis.org/mybatis-3/zh/index.html       |
-| MyBatisGenerator       | 数据层代码生成       | http://www.mybatis.org/generator/index.html          |
-| PageHelper             | MyBatis物理分页插件  | http://git.oschina.net/free/Mybatis_PageHelper       |
-| Knife4j                | 文档生产工具         | https://github.com/xiaoymin/swagger-bootstrap-ui     |
-| Elasticsearch          | 搜索引擎             | https://github.com/elastic/elasticsearch             |
-| RabbitMq               | 消息队列             | https://www.rabbitmq.com/                            |
-| Redis                  | 分布式缓存           | https://redis.io/                                    |
-| MongoDb                | NoSql数据库          | https://www.mongodb.com/                             |
-| Docker                 | 应用容器引擎         | https://www.docker.com/                              |
-| Druid                  | 数据库连接池         | https://github.com/alibaba/druid                     |
-| OSS                    | 对象存储             | https://github.com/aliyun/aliyun-oss-java-sdk        |
-| MinIO                  | 对象存储             | https://github.com/minio/minio                       |
-| LogStash               | 日志收集             | https://github.com/logstash/logstash-logback-encoder |
-| Lombok                 | 简化对象封装工具     | https://github.com/rzwitserloot/lombok               |
-| Seata                  | 全局事务管理框架     | https://github.com/seata/seata                       |
-| Portainer              | 可视化Docker容器管理 | https://github.com/portainer/portainer               |
-| Jenkins                | 自动化部署工具       | https://github.com/jenkinsci/jenkins                 |
-| Kubernetes             | 应用容器管理平台     | https://kubernetes.io/                               |
+| 模块 | 地址 | 说明 |
+| --- | --- | --- |
+| 管理端 | `http://114.55.170.17:8201/` | mall-swarm 原后台管理入口 |
+| 用户端 H5 | `http://114.55.170.17:8201/app/` | 商城用户端，首页接入推荐结果 |
+| 分析看板 | `http://114.55.170.17:8201/dashboard/` | 用户行为分析、用户画像、商品分析、推荐结果、算法评估 |
+| 行为采集接口 | `POST /mall-analytics/analytics/event` | 采集浏览、搜索、收藏、加购、下单、支付等行为 |
+| 推荐服务接口 | `GET /mall-recommend/recommend/*` | 热门推荐、个性化推荐、相似商品推荐、算法评估 |
 
-### 前端技术
+如果云服务器地址发生变化，请同步更新 `docs/deployment-operations-guide.md` 和本 README。
 
-| 技术       | 说明                  | 官网                           |
-| ---------- | --------------------- | ------------------------------ |
-| Vue        | 前端框架              | https://vuejs.org/             |
-| Vue-router | 路由框架              | https://router.vuejs.org/      |
-| Vuex       | 全局状态管理框架      | https://vuex.vuejs.org/        |
-| Element    | 前端UI框架            | https://element.eleme.io/      |
-| Axios      | 前端HTTP框架          | https://github.com/axios/axios |
-| v-charts   | 基于Echarts的图表框架 | https://v-charts.js.org/       |
+## 课程要求对应关系
 
-### 移动端技术
+| 课程要求 | 本项目实现 |
+| --- | --- |
+| 真实行业场景 | 电商用户行为分析与商品推荐 |
+| 开源项目二次改造 | 基于 mall-swarm 微服务商城扩展 |
+| 数据获取 | 本地商城业务数据、H5 行为埋点、淘宝 UserBehavior 抽样数据 |
+| 数据处理 | 行为事件标准化、商品映射、用户画像、商品画像、推荐训练样本构建 |
+| 数据存储 | MySQL 存储行为事件、画像、推荐结果、算法评估结果 |
+| 计算分析 | RFM 活跃度、商品热度、转化漏斗、ItemCF、NCF、DeepFM |
+| 数据服务 | mall-analytics 行为分析服务、mall-recommend 推荐服务 |
+| 可视化展示 | dashboard 分析看板、用户端 H5 推荐商品 |
+| 可复现材料 | README、数据字典、接口测试报告、部署运维说明、课程交付说明 |
 
-| 技术         | 说明             | 官网                                    |
-| ------------ | ---------------- | --------------------------------------- |
-| Vue          | 核心前端框架     | https://vuejs.org                       |
-| Vuex         | 全局状态管理框架 | https://vuex.vuejs.org                  |
-| uni-app      | 移动端前端框架   | https://uniapp.dcloud.io                |
-| mix-mall     | 电商项目模板     | https://ext.dcloud.net.cn/plugin?id=200 |
-| luch-request | HTTP请求框架     | https://github.com/lei-mu/luch-request  |
+## 系统架构
 
-## 环境搭建
+```text
+用户端 H5
+  -> 行为埋点 view/search/fav/cart/order/pay
+  -> mall-analytics 行为采集接口
+  -> user_behavior_event 行为事件表
+  -> 用户画像 user_profile / 商品画像 product_profile
+  -> 推荐训练与推荐结果 recommend_result
+  -> mall-recommend 推荐接口
+  -> dashboard 看板 / 用户端 H5 展示
+```
 
-### 开发环境
+离线推荐训练链路：
 
-| 工具          | 版本号 | 下载                                                         |
-| ------------- | ------ | ------------------------------------------------------------ |
-| JDK           | 17     | https://www.oracle.com/cn/java/technologies/downloads/#java17 |
-| Mysql         | 5.7    | https://www.mysql.com/                                       |
-| Redis         | 7.0    | https://redis.io/download                                    |
-| Elasticsearch | 7.17.3 | https://www.elastic.co/cn/downloads/elasticsearch            |
-| Kibana        | 7.17.3 | https://www.elastic.co/cn/downloads/kibana                   |
-| Logstash      | 7.17.3 | https://www.elastic.co/cn/downloads/logstash                 |
-| MongoDb       | 5.0    | https://www.mongodb.com/download-center                      |
-| RabbitMq      | 3.10.5 | http://www.rabbitmq.com/download.html                        |
-| nginx         | 1.22   | http://nginx.org/en/download.html                            |
+```text
+淘宝 UserBehavior.csv
+  -> sample_taobao.py 抽样
+  -> sampled_events.csv 标准化行为数据
+  -> train_itemcf.py / train_ncf.py / train_deepfm.py
+  -> evaluate_recommendations.py 算法评估
+  -> export_recommend_sql.py 导出 SQL
+  -> recommend_result / recommend_evaluation 入库
+```
 
-### 搭建步骤
+## 核心功能
 
-- Windows环境搭建请参考：[mall-swarm项目后端开发环境搭建](https://cloud.macrozheng.com/start/mall_swarm_deploy_windows.html);
-- `mall-admin-web`项目的安装及部署请参考：[mall-swarm前端开发环境搭建](https://cloud.macrozheng.com/start/mall_swarm_deploy_windows_web.html);
+### 1. 用户行为采集
 
-## 运行效果展示
+系统统一建模以下行为：
 
-- 查看注册中心注册服务信息，访问地址：http://192.168.3.101:8848/nacos/
+| 行为类型 | 含义 | 分析价值 |
+| --- | --- | --- |
+| `view` | 浏览商品 | 表示曝光和初始兴趣 |
+| `search` | 搜索商品 | 表示主动需求 |
+| `fav` | 收藏商品 | 表示较强兴趣 |
+| `cart` | 加入购物车 | 表示购买意向 |
+| `order` | 下单 | 表示转化行为 |
+| `pay` | 支付 | 表示最终购买 |
 
-![](./document/resource/re_mall_swarm_run_01.png)
+H5 首页商品点击已经接入 `view` 行为上报；其他行为类型可通过统一接口继续扩展。
 
-- 监控中心应用信息，访问地址：http://192.168.3.101:8101
+### 2. 用户画像与活跃度分析
 
-![](./document/resource/re_mall_swarm_run_02.png)
+看板将全体用户画像和单用户画像分开展示：
 
-![](./document/resource/re_mall_swarm_run_03.png)
+- 全体画像：用户规模、用户等级分布、偏好分类分布、活跃用户 TOP。
+- 单用户画像：RFM 分数、最近活跃时间、偏好分类、行为汇总、个性化推荐。
+- 左侧活跃用户 TOP 按 RFM 综合分排序，点击用户即可切换个人画像。
 
-- API文档信息，访问地址：http://192.168.3.101:8201
+RFM 活跃度计算：
 
-![](./document/resource/re_mall_swarm_run_04.png)
+```text
+RFM = R * 40% + F * 40% + M * 20%
+```
 
-- 日志收集系统信息，访问地址：http://192.168.3.101:5601
+- R：最近活跃时间，越近分数越高。
+- F：行为频率，浏览、搜索、收藏、加购、下单、支付按权重累计。
+- M：消费价值，根据支付金额分层。
 
-![](./document/resource/re_mall_swarm_run_05.png)
+### 3. 商品分析
 
-- 使用Kubernetes部署后项目运行状态，访问地址：http://192.168.3.101:30880
+商品分析页面支持：
 
-![](document/resource/re_mall_swarm_run_06.png)
+- 商品 ID 查询。
+- 商品名称关键词查询。
+- 商品货号查询。
+- 无结果时显示“无商品”。
+- 单商品浏览、收藏、加购、下单、支付统计。
+- 商品热度、加购率、下单率、支付率。
+- 同分类相似商品推荐。
 
-![](document/resource/re_mall_swarm_run_07.png)
+### 4. 商品推荐
 
-## 公众号
+当前推荐方式包括：
 
-加微信群交流，关注公众号「**macrozheng**」，回复「**加群**」即可。
+| 推荐方式 | 说明 | 用途 |
+| --- | --- | --- |
+| 热门推荐 | 根据全站行为热度生成 | 未登录用户兜底推荐 |
+| 规则推荐 | 根据用户偏好分类和商品热度生成 | 可解释的个性化推荐 |
+| ItemCF | 基于商品协同关系 | 推荐相似兴趣商品 |
+| NCF | 神经协同过滤 | 学习用户和商品的隐式匹配 |
+| DeepFM | 自动学习特征交叉 | 当前主要展示的深度学习推荐 |
 
-![公众号图片](http://macro-oss.oss-cn-shenzhen.aliyuncs.com/mall/banner/qrcode_for_macrozheng_258.jpg)
+用户端 H5 的“猜你喜欢”逻辑：
 
-## 许可证
+```text
+已登录用户 -> DeepFM 个性化推荐
+未登录用户 -> 全站热门推荐
+无推荐结果 -> 自动兜底热门推荐
+```
 
-[Apache License 2.0](https://github.com/macrozheng/mall-swarm/blob/master/LICENSE)
+普通用户端只展示商品图片、名称和价格；推荐分、算法类型、推荐原因保留在分析看板中展示。
 
-Copyright (c) 2018-2026 macrozheng
+### 5. 算法评估
+
+推荐算法评估指标包括：
+
+- HitRate@K：测试期真实感兴趣商品是否出现在 TopK。
+- Precision@K：TopK 推荐中命中的比例。
+- Recall@K：测试期正样本被覆盖的比例。
+- NDCG@K：命中商品越靠前得分越高。
+- CategoryHitRate：推荐商品分类是否命中用户兴趣分类。
+- Coverage：推荐结果覆盖的商品比例。
+
+由于淘宝外部商品需要映射到 mall-swarm 本地商品，商品 ID 级命中会受到映射影响；答辩时建议重点解释分类命中率、NDCG 和覆盖率，同时说明 ID 映射带来的限制。
+
+## 项目结构
+
+```text
+mall-swarm
+├── mall-analytics        # 新增：用户行为分析服务
+├── mall-recommend        # 新增：推荐服务
+├── mall-app-web          # 用户端 H5 静态资源与推荐接入验证
+├── dashboard             # 新增：用户行为分析与推荐看板
+├── ml-recommend          # 新增：淘宝数据抽样、ItemCF/NCF/DeepFM 训练、评估与导出
+├── docs                  # 课程交付文档、部署说明、数据链路说明
+├── document/sql          # 演示数据、商品图片修复 SQL
+├── tools                 # 商品图片批量修复工具
+├── mall-admin            # 原 mall-swarm 后台服务
+├── mall-portal           # 原 mall-swarm 用户端服务
+├── mall-search           # 原 mall-swarm 商品搜索服务
+└── pom.xml               # 已加入 mall-analytics 和 mall-recommend 模块
+```
+
+## 关键文档
+
+| 文档 | 说明 |
+| --- | --- |
+| `docs/project-improvement-summary-and-next-steps.md` | 项目改造总结与后续计划 |
+| `docs/coursework-delivery-guide.md` | 课程作业交付说明与答辩口径 |
+| `docs/data-lineage-and-offline-pipeline.md` | 数据链路与离线推荐流水线 |
+| `docs/behavior-data-collection-guide.md` | 行为采集说明 |
+| `docs/deployment-operations-guide.md` | 云服务器部署与运维说明 |
+| `docs/data-dictionary.md` | 核心数据表和字段说明 |
+| `docs/api-test-report.md` | 主要接口与测试样例 |
+| `docs/final-delivery-checklist.md` | 最终提交材料检查清单 |
+
+## 本地构建与验证
+
+后端构建：
+
+```bash
+mvn -pl mall-analytics -am -DskipTests package
+mvn -pl mall-recommend -am -DskipTests package
+```
+
+关键测试：
+
+```bash
+node mall-app-web/recommend-home.test.js
+node mall-app-web/behavior-track.test.js
+node mall-analytics/behavior-event-api.test.js
+node mall-recommend/recommend-evaluation-api.test.js
+node ml-recommend/recommend_pipeline.test.js
+node dashboard/evaluation-ui.test.js
+```
+
+离线推荐训练示例：
+
+```bash
+python ml-recommend/run_recommend_pipeline.py \
+  --events ml-recommend/data/sampled_events.csv \
+  --output-dir ml-recommend/output \
+  --train-ratio 0.8 \
+  --epochs 8 \
+  --negative-ratio 4
+```
+
+## 五人小组分工建议
+
+| 成员 | 方向 | 可展示成果 |
+| --- | --- | --- |
+| 成员 A | 行为采集与后端接口 | 行为事件表、行为上报接口、画像重建接口 |
+| 成员 B | 用户画像与商品画像 | RFM 模型、用户画像、商品画像、分析 SQL |
+| 成员 C | 推荐算法 | ItemCF、NCF、DeepFM、评估指标、推荐结果 |
+| 成员 D | 前端看板与用户端 | dashboard、H5 推荐展示、交互优化 |
+| 成员 E | 部署测试与文档 | 云服务器部署、接口测试、演示脚本、PPT 和报告 |
+
+## 答辩演示建议
+
+1. 打开用户端 H5，展示商城首页和“猜你喜欢”推荐。
+2. 点击商品，说明 H5 行为埋点如何写入行为事件表。
+3. 打开 dashboard，展示全体用户画像。
+4. 在活跃用户 TOP 中选择用户，展示单用户画像和 RFM 分数。
+5. 切换商品分析，按 ID 或关键词查询商品。
+6. 展示商品热度、转化率和相似商品推荐。
+7. 展示推荐结果页，说明热门推荐、规则推荐、ItemCF、NCF、DeepFM 的区别。
+8. 展示算法评估页，解释 Precision、Recall、NDCG、分类命中率和覆盖率。
+9. 说明当前系统限制：淘宝数据与本地商品映射不完全真实、推荐结果以离线导入为主。
+10. 总结后续改进：更多 H5 埋点、定时训练、实时数仓、模型训练过程可视化。
+
+## 来源与许可
+
+本项目基于 `macrozheng/mall-swarm` 二次开发，原项目遵循 Apache License 2.0。课程新增代码和文档用于“行业大数据分析实战”课程作业展示。
