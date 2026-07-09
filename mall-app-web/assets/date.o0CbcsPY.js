@@ -1,0 +1,1 @@
+const e=(e,n)=>{let s=n;s=s.replace(/(y+)/,(t,n)=>(e.getFullYear()+"").slice(4-n.length));const c={"M+":e.getMonth()+1,"d+":e.getDate(),"h+":e.getHours(),"m+":e.getMinutes(),"s+":e.getSeconds()};for(const[o,r]of Object.entries(c)){const e=new RegExp(`(${o})`);s=s.replace(e,(e,n)=>{const s=r+"";return 1===n.length?s:t(s)})}return s},t=e=>("00"+e).slice(e.length);export{e as f};

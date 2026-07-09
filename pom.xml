@@ -16,6 +16,8 @@
         <module>mall-admin</module>
         <module>mall-search</module>
         <module>mall-portal</module>
+        <module>mall-analytics</module>
+        <module>mall-recommend</module>
         <module>mall-monitor</module>
         <module>mall-gateway</module>
         <module>mall-auth</module>

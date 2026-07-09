@@ -1,0 +1,1 @@
+import{h as t}from"./http.94CetqdY.js";const a=a=>t({method:"POST",url:"/cart/add",data:a}),r=()=>t({method:"GET",url:"/cart/list"}),d=a=>t({method:"POST",url:"/cart/delete",params:a}),e=a=>t({method:"GET",url:`/cart/update/quantity?id=${a.id}&quantity=${a.quantity}`}),s=()=>t({method:"POST",url:"/cart/clear"});export{a,s as c,d,r as g,e as u};

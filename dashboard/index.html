@@ -1,0 +1,3330 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>电商用户行为分析与商品推荐看板</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+  <style>
+    :root {
+      --bg: #f3f6fb;
+      --panel: #ffffff;
+      --line: #d9e2ee;
+      --text: #172033;
+      --muted: #667085;
+      --brand: #0f766e;
+      --blue: #2563eb;
+      --orange: #d97706;
+      --red: #dc2626;
+      --shadow: 0 10px 28px rgba(15, 23, 42, .08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background: var(--bg);
+      font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+    }
+
+    header {
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 24px;
+      background: #0b1220;
+      color: #fff;
+      border-bottom: 1px solid rgba(255, 255, 255, .08);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+
+    .header-subtitle {
+      margin-top: 6px;
+      color: #cbd5e1;
+      font-size: 13px;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 18px;
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .sidebar, .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 18px;
+      align-self: start;
+      max-height: calc(100vh - 108px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-section {
+      padding: 14px;
+      border-bottom: 1px solid var(--line);
+      flex: 0 0 auto;
+    }
+
+    .sidebar-title {
+      margin: 0 0 10px;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .nav {
+      display: grid;
+      gap: 8px;
+    }
+
+    .nav button, .button {
+      height: 38px;
+      border: 0;
+      border-radius: 6px;
+      padding: 0 12px;
+      background: #e8eef7;
+      color: var(--text);
+      font-weight: 800;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .nav button.active {
+      background: var(--brand);
+      color: #fff;
+    }
+
+    .button {
+      background: var(--brand);
+      color: #fff;
+      text-align: center;
+    }
+
+    .button.secondary {
+      background: var(--blue);
+    }
+
+    .button.ghost {
+      color: var(--brand);
+      background: #e6f4f1;
+    }
+
+    .sidebar-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .user-filter-section {
+      padding: 10px 14px 9px;
+    }
+
+    .user-filter-section .sidebar-title {
+      margin-bottom: 8px;
+    }
+
+    .user-filter-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .user-filter-grid .field {
+      margin-bottom: 0;
+      gap: 4px;
+    }
+
+    .user-filter-grid .field:first-child {
+      grid-column: 1 / -1;
+    }
+
+    .user-filter-section input,
+    .user-filter-section select {
+      height: 32px;
+    }
+
+    .user-filter-section .muted {
+      margin-top: 7px;
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    input, select {
+      width: 100%;
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 0 10px;
+      color: var(--text);
+      background: #fff;
+      outline: none;
+    }
+
+    .user-list {
+      flex: 1 1 420px;
+      min-height: 280px;
+      overflow: auto;
+      padding: 10px;
+    }
+
+    .user-item {
+      display: grid;
+      gap: 6px;
+      width: 100%;
+      margin-bottom: 8px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8fafc;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .user-item.active {
+      border-color: var(--brand);
+      background: #e6f4f1;
+    }
+
+    .user-main {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .content {
+      min-width: 0;
+      display: grid;
+      gap: 16px;
+    }
+
+    .view { display: none; }
+    .view.active { display: grid; gap: 16px; }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .panel-body { padding: 16px; }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+    .kpi {
+      position: relative;
+      min-height: 104px;
+      padding: 16px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .kpi-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .kpi-name {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .help-btn {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 18px;
+      border: 1px solid #c9d5e6;
+      border-radius: 50%;
+      background: #f8fafc;
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 16px;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .help-btn:hover,
+    .help-btn.active {
+      border-color: var(--brand);
+      background: #e6f4f1;
+      color: var(--brand);
+    }
+
+    .kpi-help {
+      position: absolute;
+      z-index: 20;
+      top: 42px;
+      right: 14px;
+      display: none;
+      width: min(280px, calc(100% - 28px));
+      padding: 10px 12px;
+      border: 1px solid #cde7df;
+      border-radius: 6px;
+      background: #f0fdfa;
+      color: #31534d;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, .16);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .kpi-help.show {
+      display: block;
+    }
+
+
+    .panel {
+      position: relative;
+    }
+
+    .panel-title-help {
+      align-items: center;
+    }
+
+    .panel-title-help > span {
+      min-width: 0;
+    }
+
+    .panel-help-btn {
+      margin-left: auto;
+    }
+
+    .panel-help {
+      position: absolute;
+      z-index: 30;
+      top: 48px;
+      right: 16px;
+      display: none;
+      width: min(420px, calc(100% - 32px));
+      padding: 12px 14px;
+      border: 1px solid #cde7df;
+      border-radius: 6px;
+      background: #f0fdfa;
+      color: #31534d;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, .16);
+      font-size: 12px;
+      line-height: 1.65;
+      white-space: pre-line;
+    }
+
+    .panel-help.show {
+      display: block;
+    }
+
+    .kpi-value {
+      margin-top: 12px;
+      font-size: 28px;
+      font-weight: 900;
+    }
+
+    .kpi-note {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .chart {
+      width: 100%;
+      height: 320px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th, td {
+      padding: 10px 8px;
+      border-bottom: 1px solid #edf1f6;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th {
+      color: var(--muted);
+      background: #f8fafc;
+      font-weight: 800;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: #e6f4f1;
+      color: var(--brand);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .pill.blue {
+      color: var(--blue);
+      background: #eaf1ff;
+    }
+
+    .recommend-toolbar {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid #edf1f6;
+    }
+
+    .recommend-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .recommend-tab {
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 0 12px;
+      background: #fff;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .recommend-tab.active {
+      border-color: var(--brand);
+      background: var(--brand);
+      color: #fff;
+    }
+
+    .recommend-type-note {
+      padding: 9px 10px;
+      border: 1px solid #edf1f6;
+      border-radius: 6px;
+      background: #f8fafc;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .algorithm-table td,
+    .algorithm-table th {
+      vertical-align: top;
+    }
+
+    .product {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .product img {
+      width: 44px;
+      height: 44px;
+      object-fit: cover;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #f8fafc;
+      flex: 0 0 auto;
+    }
+
+    .product-name {
+      max-width: 380px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 800;
+    }
+
+    .recommend-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .recommend-card {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px 14px;
+      padding: 12px;
+      border: 1px solid #e5edf7;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .recommend-rank {
+      position: absolute;
+      top: -9px;
+      left: 12px;
+      min-width: 34px;
+      height: 22px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: var(--orange);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 22px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(217, 119, 6, .24);
+    }
+
+    .recommend-main {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .recommend-thumb {
+      width: 58px;
+      height: 58px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8fafc;
+      object-fit: contain;
+      flex: 0 0 auto;
+    }
+
+    .recommend-thumb.placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .recommend-info {
+      min-width: 0;
+      display: grid;
+      gap: 5px;
+    }
+
+    .recommend-title {
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 900;
+      line-height: 1.35;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .recommend-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .recommend-side {
+      display: grid;
+      justify-items: end;
+      align-content: center;
+      gap: 8px;
+      min-width: 74px;
+    }
+
+    .recommend-score {
+      color: var(--muted);
+      font-size: 12px;
+      text-align: right;
+    }
+
+    .recommend-score strong {
+      display: block;
+      color: var(--text);
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .recommend-reason {
+      grid-column: 1 / -1;
+      padding: 9px 10px;
+      border-radius: 6px;
+      background: #f8fafc;
+      color: #475467;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .recommend-reason strong {
+      color: var(--text);
+      margin-right: 6px;
+      white-space: nowrap;
+    }
+
+    .similar-breakdown {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .similar-metric {
+      padding: 8px;
+      border: 1px solid #e4ebf3;
+      border-radius: 8px;
+      background: #f8fbfd;
+    }
+
+    .similar-metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
+    .similar-metric strong {
+      display: block;
+      margin-top: 4px;
+      color: var(--text);
+      font-size: 16px;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+
+    .product-search-results {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .product-option {
+      display: grid;
+      grid-template-columns: 54px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      min-height: 76px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .product-option.active {
+      border-color: var(--brand);
+      background: #e6f4f1;
+    }
+
+    .product-option img {
+      width: 54px;
+      height: 54px;
+      object-fit: contain;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #f8fafc;
+    }
+
+    .product-option-name {
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1.35;
+    }
+
+    .product-option-score {
+      color: var(--muted);
+      font-size: 12px;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .product-option-score strong {
+      display: block;
+      color: var(--text);
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .info-list {
+      display: grid;
+      gap: 9px;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #edf1f6;
+      font-size: 13px;
+    }
+
+    .info-row span:first-child {
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .advanced-intel-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .advanced-model-card {
+      display: grid;
+      gap: 12px;
+      min-height: 210px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, .05);
+    }
+
+    .advanced-model-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .advanced-model-title {
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 950;
+      line-height: 1.35;
+    }
+
+    .advanced-model-subtitle {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .advanced-score {
+      min-width: 68px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .advanced-score strong {
+      display: block;
+      color: #0e7490;
+      font-size: 30px;
+      line-height: 1;
+      font-weight: 950;
+    }
+
+    .advanced-score span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .advanced-bars {
+      display: grid;
+      gap: 8px;
+    }
+
+    .advanced-bar {
+      display: grid;
+      grid-template-columns: 92px minmax(0, 1fr) 48px;
+      align-items: center;
+      gap: 8px;
+      color: #475467;
+      font-size: 12px;
+    }
+
+    .advanced-bar-track {
+      height: 8px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #e8eef5;
+    }
+
+    .advanced-bar-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: #0e7490;
+    }
+
+    .advanced-factor-list {
+      display: grid;
+      gap: 7px;
+    }
+
+    .advanced-factor {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 9px;
+      background: #f8fafc;
+      color: #475467;
+      font-size: 12px;
+    }
+
+    .advanced-factor strong {
+      color: var(--text);
+    }
+
+    .advanced-factor.positive span {
+      color: #047857;
+      font-weight: 900;
+    }
+
+    .advanced-factor.negative span {
+      color: #b42318;
+      font-weight: 900;
+    }
+
+    .advanced-flow {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .advanced-flow-step {
+      padding: 10px;
+      border: 1px solid #e4ebf3;
+      border-radius: 10px;
+      background: #f8fbfd;
+      text-align: center;
+    }
+
+    .advanced-flow-step strong {
+      display: block;
+      color: var(--text);
+      font-size: 18px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .advanced-flow-step span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .advanced-tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .advanced-tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 0 9px;
+      border-radius: 999px;
+      background: #ecfeff;
+      color: #155e75;
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .advanced-note {
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #f8fafc;
+      color: #475467;
+      font-size: 12px;
+      line-height: 1.65;
+    }
+
+    .formula {
+      line-height: 1.8;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .empty-state {
+      display: grid;
+      gap: 8px;
+      place-items: center;
+      min-height: 150px;
+      padding: 28px 16px;
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      background: #f8fafc;
+      text-align: center;
+    }
+
+    .empty-state-title {
+      color: var(--text);
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .error {
+      display: none;
+      padding: 10px 12px;
+      border: 1px solid #fecaca;
+      border-radius: 6px;
+      color: var(--red);
+      background: #fef2f2;
+    }
+
+    @media (max-width: 1100px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { position: static; max-height: none; }
+      .user-list { flex-basis: auto; max-height: 440px; }
+      .cols-4, .cols-3, .cols-2 { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 600px) {
+      header { height: auto; padding: 16px; align-items: flex-start; flex-direction: column; }
+      .app { padding: 12px; }
+      .product-name { max-width: 180px; }
+      .recommend-card { grid-template-columns: 1fr; }
+      .recommend-side { justify-items: start; grid-template-columns: auto auto; align-items: center; }
+    }
+  
+
+    /* dashboard-polish-v3: commerce intelligence workspace */
+    :root {
+      --bg: #e8eef5;
+      --panel: #ffffff;
+      --panel-soft: #f6f9fc;
+      --line: #cfdbe8;
+      --line-soft: #e7eef6;
+      --text: #111827;
+      --muted: #64748b;
+      --brand: #0e7490;
+      --brand-strong: #155e75;
+      --brand-soft: #e6f6fa;
+      --blue: #2563eb;
+      --blue-soft: #eaf2ff;
+      --orange: #b45309;
+      --red: #d92d20;
+      --shadow: 0 20px 48px rgba(15, 23, 42, .1);
+      --shadow-soft: 0 10px 26px rgba(15, 23, 42, .07);
+    }
+
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: #94a3b8 transparent;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0 0 auto 0;
+      height: 248px;
+      background: #0b1220;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    header {
+      min-height: 92px;
+      height: auto;
+      padding: 20px 34px;
+      background: #0b1220;
+      border-bottom: 1px solid rgba(255, 255, 255, .1);
+      box-shadow: 0 12px 38px rgba(15, 23, 42, .26);
+    }
+
+    header > div:first-child {
+      position: relative;
+      padding-left: 18px;
+    }
+
+    header > div:first-child::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 4px;
+      width: 5px;
+      height: 48px;
+      border-radius: 2px;
+      background: #22d3ee;
+    }
+
+    h1 {
+      font-size: 27px;
+      line-height: 1.22;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+
+    .header-subtitle {
+      color: #aab7ca;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    #clock {
+      min-width: 168px;
+      padding: 10px 14px;
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .08);
+      color: #e2e8f0;
+      text-align: center;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .app {
+      max-width: 1760px;
+      grid-template-columns: 360px minmax(0, 1fr);
+      gap: 24px;
+      padding: 24px 26px 36px;
+    }
+
+    .sidebar, .panel, .kpi {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+    }
+
+    .sidebar {
+      top: 24px;
+      max-height: calc(100vh - 48px);
+      background: #111827;
+      color: #dbeafe;
+      border-color: rgba(255, 255, 255, .1);
+      box-shadow: 0 24px 54px rgba(15, 23, 42, .28);
+    }
+
+    .sidebar::before {
+      content: "Commerce Intelligence";
+      display: flex;
+      align-items: center;
+      height: 60px;
+      padding: 0 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, .08);
+      color: #fff;
+      font-size: 17px;
+      font-weight: 900;
+    }
+
+    .sidebar-section {
+      padding: 17px;
+      border-bottom-color: rgba(255, 255, 255, .1);
+    }
+
+    .sidebar-title {
+      color: #f8fbff;
+      font-size: 13px;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .sidebar .muted, .sidebar label {
+      color: #9fb0c8;
+    }
+
+    .nav button, .button {
+      height: 42px;
+      border-radius: 8px;
+      transition: transform .16s ease, background-color .16s ease, border-color .16s ease, color .16s ease;
+    }
+
+    .nav button {
+      position: relative;
+      border: 1px solid rgba(255, 255, 255, .08);
+      background: #1f2937;
+      color: #cbd5e1;
+      padding-left: 42px;
+      font-size: 14px;
+    }
+
+    .nav button::before {
+      content: "";
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      width: 16px;
+      height: 16px;
+      border-radius: 5px;
+      background: #334155;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08);
+      transform: translateY(-50%);
+    }
+
+    .nav button[data-view="global"]::before { content: ""; background: #0e7490; }
+    .nav button[data-view="single"]::before { content: ""; background: #2563eb; }
+    .nav button[data-view="product"]::before { content: ""; background: #b45309; }
+    .nav button[data-view="recommend"]::before { content: ""; background: #16a34a; }
+    .nav button[data-view="evaluation"]::before { content: ""; background: #7c3aed; }
+
+    .nav button:hover {
+      background: #2b3748;
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    .nav button.active {
+      background: #0e7490;
+      color: #fff;
+      border-color: #67e8f9;
+      box-shadow: 0 12px 28px rgba(14, 116, 144, .32);
+    }
+
+    .nav button.active::before {
+      background: #cffafe;
+    }
+
+    .button {
+      background: var(--brand);
+      box-shadow: 0 10px 20px rgba(14, 116, 144, .24);
+    }
+
+    .button:hover {
+      background: var(--brand-strong);
+      transform: translateY(-1px);
+    }
+
+    .button.ghost {
+      color: #a5f3fc;
+      background: rgba(34, 211, 238, .1);
+      border: 1px solid rgba(34, 211, 238, .24);
+      box-shadow: none;
+    }
+
+    input, select {
+      height: 38px;
+      border-radius: 8px;
+      border-color: #c8d5e4;
+      background: #fff;
+      box-shadow: 0 1px 0 rgba(15, 23, 42, .03);
+    }
+
+    .sidebar input, .sidebar select {
+      border-color: rgba(255, 255, 255, .12);
+      background: #0f172a;
+      color: #f8fbff;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(14, 116, 144, .16);
+    }
+
+    .user-filter-section {
+      background: rgba(255, 255, 255, .03);
+    }
+
+    .user-filter-grid {
+      gap: 10px;
+    }
+
+    .user-list {
+      padding: 12px;
+      scrollbar-color: #64748b #111827;
+    }
+
+    .user-item {
+      border-color: rgba(255, 255, 255, .08);
+      background: #1f2937;
+      color: #dce6f5;
+      border-radius: 9px;
+      box-shadow: none;
+    }
+
+    .user-item:hover {
+      border-color: rgba(34, 211, 238, .46);
+      background: #273449;
+    }
+
+    .user-item.active {
+      border-color: #67e8f9;
+      background: #0e7490;
+      color: #fff;
+      box-shadow: 0 12px 28px rgba(14, 116, 144, .34);
+    }
+
+    .user-main {
+      font-size: 14px;
+    }
+
+    .content {
+      gap: 18px;
+    }
+
+    .view.active {
+      gap: 18px;
+    }
+
+    .panel, .kpi {
+      background: var(--panel);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .panel::before, .kpi::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 4px;
+      background: var(--brand);
+      opacity: .9;
+      pointer-events: none;
+    }
+
+    .panel-title {
+      min-height: 58px;
+      padding: 16px 18px 15px 22px;
+      background: #f7fafc;
+      border-bottom-color: var(--line-soft);
+      color: #122033;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    .panel-title .muted {
+      font-weight: 600;
+    }
+
+    .panel-body {
+      padding: 20px 22px 22px;
+    }
+
+    .kpi {
+      min-height: 132px;
+      padding: 18px 18px 16px 22px;
+      background: #0f172a;
+      border-color: rgba(255, 255, 255, .1);
+      color: #e5edf8;
+      box-shadow: 0 22px 48px rgba(15, 23, 42, .22);
+    }
+
+    .kpi-name {
+      color: #a8b6ca;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .kpi-value {
+      margin-top: 12px;
+      color: #f8fafc;
+      font-size: 36px;
+      line-height: 1.05;
+      font-weight: 950;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .kpi-note {
+      color: #9fb0c8;
+      font-weight: 600;
+    }
+
+    .kpi:nth-child(1)::before { background: #22d3ee; }
+    .kpi:nth-child(2)::before { background: #16a34a; }
+    .kpi:nth-child(3)::before { background: #f59e0b; }
+    .kpi:nth-child(4)::before { background: #ef4444; }
+    .kpi:nth-child(5)::before { background: #8b5cf6; }
+
+    .kpi .help-btn {
+      color: #dbeafe;
+      border-color: rgba(255, 255, 255, .18);
+      background: rgba(255, 255, 255, .08);
+    }
+
+    .kpi .help-btn:hover,
+    .kpi .help-btn.active {
+      color: #0f172a;
+      background: #e0f2fe;
+      border-color: #7dd3fc;
+    }
+
+    .help-btn {
+      width: 22px;
+      height: 22px;
+      flex-basis: 22px;
+      border-radius: 7px;
+      border-color: #cbd8e8;
+      line-height: 20px;
+      font-weight: 900;
+    }
+
+    .help-btn:hover, .help-btn.active {
+      border-color: var(--brand);
+      background: var(--brand-soft);
+    }
+
+    .kpi-help, .panel-help {
+      border-radius: 10px;
+      border-color: #8ad7e6;
+      background: #ecfeff;
+      box-shadow: 0 18px 42px rgba(15, 23, 42, .2);
+    }
+
+    .chart {
+      height: 360px;
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
+      background: #fbfdff;
+      padding: 8px;
+    }
+
+    table {
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 13px;
+    }
+
+    th {
+      background: #eaf6fb;
+      color: #26364e;
+      font-weight: 900;
+    }
+
+    th:first-child { border-top-left-radius: 8px; }
+    th:last-child { border-top-right-radius: 8px; }
+
+    td, th {
+      padding: 12px 10px;
+      border-bottom-color: var(--line-soft);
+    }
+
+    tbody tr:nth-child(even) td {
+      background: #fbfdff;
+    }
+
+    tbody tr:hover td {
+      background: #f2f8ff;
+    }
+
+    .pill {
+      min-height: 26px;
+      padding: 0 10px;
+      border-radius: 8px;
+      background: var(--brand-soft);
+      color: var(--brand-strong);
+    }
+
+    .pill.blue {
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    .recommend-toolbar {
+      padding: 14px;
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
+      background: #f7fafc;
+    }
+
+    .recommend-tab {
+      height: 36px;
+      border-radius: 8px;
+      border-color: #cbd8e8;
+      background: #fff;
+    }
+
+    .recommend-tab.active {
+      border-color: var(--brand);
+      background: var(--brand);
+      box-shadow: 0 8px 18px rgba(14, 116, 144, .22);
+    }
+
+    .recommend-type-note, .formula, .error {
+      border-radius: 10px;
+    }
+
+    .recommend-type-note, .formula {
+      border: 1px solid var(--line-soft);
+      background: #f7fafc;
+      color: #52627a;
+    }
+
+    .product-search-results, .recommend-list, .product-grid, .metric-grid {
+      gap: 12px;
+    }
+
+    .product-card, .recommend-card, .product-search-card, .metric-card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: var(--shadow-soft);
+      overflow: hidden;
+    }
+
+    .product-option, .recommend-card {
+      transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+    }
+
+    .product-option:hover, .recommend-card:hover {
+      transform: translateY(-1px);
+      border-color: #9bd7e4;
+      box-shadow: 0 16px 34px rgba(15, 23, 42, .11);
+    }
+
+    .product-option.active {
+      border-color: var(--brand);
+      background: #eefcff;
+      box-shadow: 0 14px 30px rgba(14, 116, 144, .18);
+    }
+
+    .product img, .product-card img, .recommend-card img, .product-search-card img {
+      border-radius: 8px;
+      border: 1px solid var(--line-soft);
+      background: #f8fbff;
+    }
+
+    /* active-user-list-room: give the left user selector more usable space */
+    @media (min-width: 1181px) {
+      .app {
+        grid-template-columns: 400px minmax(0, 1fr);
+        padding-top: 18px;
+      }
+
+      .sidebar {
+        top: 16px;
+        max-height: calc(100dvh - 32px);
+      }
+
+      .sidebar::before {
+        height: 48px;
+        padding: 0 16px;
+        font-size: 15px;
+      }
+
+      .sidebar-section {
+        padding: 12px 14px;
+      }
+
+      .sidebar-title {
+        margin-bottom: 7px;
+      }
+
+      .nav {
+        gap: 6px;
+      }
+
+      .nav button,
+      .button {
+        height: 36px;
+      }
+
+      .field {
+        gap: 4px;
+        margin-bottom: 7px;
+      }
+
+      .sidebar input,
+      .sidebar select,
+      .user-filter-section input,
+      .user-filter-section select {
+        height: 32px;
+      }
+
+      .sidebar-actions {
+        gap: 7px;
+      }
+
+      .user-filter-section {
+        padding: 11px 14px 10px;
+      }
+
+      .user-filter-grid {
+        gap: 7px;
+      }
+
+      .user-list {
+        flex: 1 1 560px;
+        min-height: clamp(420px, 52dvh, 720px);
+        padding: 12px 14px 14px;
+      }
+
+      .user-item {
+        margin-bottom: 10px;
+        padding: 12px;
+      }
+    }
+
+    .error {
+      border: 1px solid #fecaca;
+      background: #fff1f2;
+      color: #b42318;
+      font-weight: 700;
+    }
+
+    @media (max-width: 1180px) {
+      body::before { height: 180px; }
+      header { align-items: flex-start; flex-direction: column; }
+      #clock { text-align: left; }
+      .app { grid-template-columns: 1fr; padding: 16px; }
+      .sidebar { position: relative; top: 0; max-height: none; }
+      .cols-2, .cols-3, .cols-4 { grid-template-columns: 1fr; }
+      .chart { height: 300px; }
+    }
+
+    /* dashboard-comfort-light: reduce dark surfaces for long reading sessions */
+    :root {
+      --bg: #f3f6fa;
+      --panel: #ffffff;
+      --panel-soft: #f8fafc;
+      --line: #d7e0ea;
+      --line-soft: #e8eef5;
+      --text: #111827;
+      --muted: #64748b;
+      --brand: #0e7490;
+      --brand-strong: #155e75;
+      --brand-soft: #e6f7fb;
+      --shadow: 0 12px 28px rgba(15, 23, 42, .07);
+      --shadow-soft: 0 8px 18px rgba(15, 23, 42, .055);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    body::before {
+      height: 0;
+      background: transparent;
+    }
+
+    header {
+      min-height: 82px;
+      background: #ffffff;
+      color: #111827;
+      border-bottom: 1px solid var(--line);
+      box-shadow: 0 8px 22px rgba(15, 23, 42, .06);
+    }
+
+    header > div:first-child::before {
+      background: var(--brand);
+    }
+
+    .header-subtitle {
+      color: #64748b;
+    }
+
+    #clock {
+      color: #155e75;
+      background: #ecfeff;
+      border-color: #bae6fd;
+      box-shadow: none;
+    }
+
+    .sidebar {
+      background: #ffffff;
+      color: #111827;
+      border-color: var(--line);
+      box-shadow: var(--shadow);
+    }
+
+    .sidebar::before {
+      color: #0f172a;
+      background: #f8fafc;
+      border-bottom-color: var(--line-soft);
+    }
+
+    .sidebar-section {
+      border-bottom-color: var(--line-soft);
+    }
+
+    .sidebar-title {
+      color: #334155;
+    }
+
+    .sidebar .muted,
+    .sidebar label {
+      color: #64748b;
+    }
+
+    .nav button {
+      border-color: #dbe5ef;
+      background: #f8fafc;
+      color: #334155;
+    }
+
+    .nav button:hover {
+      background: #eef6fb;
+      color: #0f172a;
+    }
+
+    .nav button::before {
+      background: #cbd5e1;
+      box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .06);
+    }
+
+    .nav button.active {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #ffffff;
+      box-shadow: 0 10px 22px rgba(14, 116, 144, .2);
+    }
+
+    .nav button.active::before {
+      background: #ffffff;
+    }
+
+    .button.ghost {
+      color: var(--brand-strong);
+      background: #ecfeff;
+      border-color: #a5f3fc;
+    }
+
+    .sidebar input,
+    .sidebar select {
+      background: #ffffff;
+      color: #111827;
+      border-color: #cfdbe8;
+    }
+
+    .user-filter-section {
+      background: #f8fafc;
+    }
+
+    .user-list {
+      scrollbar-color: #94a3b8 #f8fafc;
+    }
+
+    .user-item {
+      background: #ffffff;
+      color: #111827;
+      border-color: #dbe5ef;
+      box-shadow: 0 4px 10px rgba(15, 23, 42, .035);
+    }
+
+    .user-item:hover {
+      background: #f2f8fb;
+      border-color: #8bd3e2;
+    }
+
+    .user-item.active {
+      background: #e6f7fb;
+      border-color: var(--brand);
+      color: #0f172a;
+      box-shadow: 0 10px 22px rgba(14, 116, 144, .14);
+    }
+
+    .kpi {
+      background: #ffffff;
+      border-color: var(--line);
+      color: var(--text);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .kpi-name {
+      color: #64748b;
+    }
+
+    .kpi-value {
+      color: #0f172a;
+    }
+
+    .kpi-note {
+      color: #64748b;
+    }
+
+    .kpi .help-btn {
+      color: #155e75;
+      border-color: #cbd5e1;
+      background: #f8fafc;
+    }
+
+    .kpi .help-btn:hover,
+    .kpi .help-btn.active {
+      color: #155e75;
+      background: #ecfeff;
+      border-color: #67e8f9;
+    }
+
+    .panel-title,
+    .recommend-toolbar,
+    .recommend-type-note,
+    .formula {
+      background: #f8fafc;
+    }
+
+    .chart {
+      background: #ffffff;
+    }
+
+    th {
+      background: #edf6fa;
+    }
+
+    /* dashboard-showpiece-light: stronger visible redesign on the preferred light version */
+    body {
+      background: #eef3f8;
+    }
+
+    header {
+      min-height: 96px;
+      padding: 18px 32px;
+      background: #ffffff;
+      border-bottom: 1px solid #d8e4ef;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, .055);
+    }
+
+    header > div:first-child {
+      padding-left: 0;
+    }
+
+    header > div:first-child::before {
+      display: none;
+    }
+
+    h1 {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #102033;
+      font-size: 28px;
+      font-weight: 950;
+    }
+
+    h1::before {
+      content: "BI";
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: #0e7490;
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 950;
+      box-shadow: 0 12px 22px rgba(14, 116, 144, .24);
+    }
+
+    .header-subtitle {
+      margin-left: 56px;
+      color: #64748b;
+      font-size: 13px;
+    }
+
+    #clock {
+      margin-left: 0;
+      min-width: 190px;
+      height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #b7d8e4;
+      border-radius: 12px;
+      background: #f0fbff;
+      color: #155e75;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.75);
+    }
+
+    .app {
+      max-width: none;
+      grid-template-columns: 410px minmax(0, 1fr);
+      gap: 24px;
+      padding: 24px 30px 42px;
+    }
+
+    .sidebar {
+      background: #ffffff;
+      border: 1px solid #d7e2ec;
+      border-radius: 14px;
+      box-shadow: 0 18px 38px rgba(15, 23, 42, .075);
+    }
+
+    .sidebar::before {
+      content: "用户筛选与画像入口";
+      height: 56px;
+      padding: 0 18px;
+      border-bottom: 1px solid #e8eef5;
+      background: #f8fbfd;
+      color: #102033;
+      font-size: 15px;
+      font-weight: 950;
+    }
+
+    .sidebar-section {
+      padding: 14px 16px;
+      border-bottom-color: #e8eef5;
+    }
+
+    .sidebar-title {
+      color: #334155;
+      font-size: 13px;
+      font-weight: 950;
+    }
+
+    .nav {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .nav button {
+      height: 44px;
+      padding-left: 52px;
+      border: 1px solid #e1e8f0;
+      border-radius: 12px;
+      background: #ffffff;
+      color: #334155;
+      font-size: 14px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, .035);
+    }
+
+    .nav button::before {
+      left: 14px;
+      width: 26px;
+      height: 26px;
+      border-radius: 9px;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 950;
+      line-height: 26px;
+      text-align: center;
+      transform: translateY(-50%);
+      box-shadow: none;
+    }
+
+    .nav button[data-view="global"]::before { content: "全"; background: #0e7490; }
+    .nav button[data-view="single"]::before { content: "单"; background: #2563eb; }
+    .nav button[data-view="product"]::before { content: "品"; background: #b45309; }
+    .nav button[data-view="recommend"]::before { content: "荐"; background: #16a34a; }
+    .nav button[data-view="evaluation"]::before { content: "评"; background: #7c3aed; }
+
+    .nav button:hover {
+      border-color: #9ad7e6;
+      background: #f7fcff;
+      color: #155e75;
+      transform: translateY(-1px);
+    }
+
+    .nav button.active {
+      border-color: #67cfe1;
+      background: #e8f8fc;
+      color: #155e75;
+      box-shadow: 0 10px 20px rgba(14, 116, 144, .12);
+    }
+
+    .button {
+      height: 38px;
+      border-radius: 10px;
+    }
+
+    .button.ghost {
+      background: #ffffff;
+      border-color: #a9dce7;
+    }
+
+    .user-filter-section {
+      background: #f8fbfd;
+    }
+
+    .user-list {
+      margin: 10px 12px 12px;
+      padding: 12px;
+      min-height: clamp(500px, 58dvh, 780px);
+      border: 1px solid #e1e8f0;
+      border-radius: 14px;
+      background: #f8fbfd;
+    }
+
+    .user-item {
+      position: relative;
+      margin-bottom: 10px;
+      padding: 13px 14px;
+      border-radius: 12px;
+      border-color: #e1e8f0;
+      background: #ffffff;
+      box-shadow: 0 3px 10px rgba(15, 23, 42, .04);
+    }
+
+    .user-item:hover {
+      border-color: #8bd3e2;
+      background: #ffffff;
+      box-shadow: 0 12px 24px rgba(15, 23, 42, .08);
+    }
+
+    .user-item.active {
+      border-color: #0e7490;
+      background: #ffffff;
+      color: #102033;
+      box-shadow: 0 0 0 3px rgba(14, 116, 144, .11), 0 12px 24px rgba(15, 23, 42, .08);
+    }
+
+    .user-item.active::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 12px;
+      bottom: 12px;
+      width: 4px;
+      border-radius: 0 999px 999px 0;
+      background: #0e7490;
+    }
+
+    .user-main {
+      align-items: center;
+      color: #102033;
+    }
+
+    .user-main span:last-child {
+      min-width: 54px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #ecfeff;
+      color: #155e75;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .grid {
+      gap: 18px;
+    }
+
+    .kpi {
+      min-height: 136px;
+      padding: 20px 20px 18px;
+      border: 1px solid #dce6ef;
+      border-radius: 16px;
+      background: #ffffff;
+      box-shadow: 0 14px 28px rgba(15, 23, 42, .07);
+    }
+
+    .kpi::before {
+      width: 100%;
+      height: 5px;
+      inset: 0 0 auto 0;
+      opacity: 1;
+    }
+
+    .kpi:nth-child(1)::after,
+    .kpi:nth-child(2)::after,
+    .kpi:nth-child(3)::after,
+    .kpi:nth-child(4)::after,
+    .kpi:nth-child(5)::after {
+      position: absolute;
+      right: 18px;
+      top: 18px;
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 950;
+    }
+
+    .kpi:nth-child(1)::after { content: "总"; background: #ecfeff; color: #155e75; }
+    .kpi:nth-child(2)::after { content: "高"; background: #ecfdf3; color: #166534; }
+    .kpi:nth-child(3)::after { content: "中"; background: #fff7ed; color: #9a3412; }
+    .kpi:nth-child(4)::after { content: "低"; background: #fef2f2; color: #b42318; }
+    .kpi:nth-child(5)::after { content: "评"; background: #f5f3ff; color: #6d28d9; }
+
+    .kpi-name {
+      padding-right: 46px;
+      color: #64748b;
+      font-size: 13px;
+      font-weight: 950;
+    }
+
+    .kpi-value {
+      margin-top: 14px;
+      color: #102033;
+      font-size: 40px;
+      font-weight: 950;
+    }
+
+    .kpi-note {
+      margin-top: 8px;
+      color: #667085;
+    }
+
+    .panel {
+      border: 1px solid #dce6ef;
+      border-radius: 16px;
+      background: #ffffff;
+      box-shadow: 0 14px 28px rgba(15, 23, 42, .06);
+    }
+
+    .panel::before {
+      width: 0;
+    }
+
+    .panel-title {
+      min-height: 62px;
+      padding: 17px 20px;
+      background: #ffffff;
+      border-bottom-color: #e8eef5;
+      color: #102033;
+      font-size: 16px;
+      font-weight: 950;
+    }
+
+    .panel-title::before {
+      content: "";
+      width: 10px;
+      height: 26px;
+      flex: 0 0 auto;
+      border-radius: 999px;
+      background: #0e7490;
+    }
+
+    .panel-body {
+      padding: 20px;
+    }
+
+    .chart {
+      height: 370px;
+      border-color: #e8eef5;
+      border-radius: 14px;
+      background: #fbfdff;
+    }
+
+    table {
+      overflow: hidden;
+      border-radius: 12px;
+      border: 1px solid #e4ebf3;
+    }
+
+    th {
+      background: #f3f8fb;
+      color: #475467;
+      font-size: 12px;
+    }
+
+    .recommend-toolbar,
+    .recommend-type-note,
+    .formula {
+      border-radius: 14px;
+      border-color: #e4ebf3;
+      background: #f8fbfd;
+    }
+
+    .recommend-card,
+    .product-option,
+    .product-card,
+    .metric-card {
+      border-radius: 14px;
+      border-color: #dfe8f1;
+      box-shadow: 0 5px 14px rgba(15, 23, 42, .05);
+    }
+
+    .recommend-card:hover,
+    .product-option:hover {
+      border-color: #8bd3e2;
+      box-shadow: 0 14px 28px rgba(15, 23, 42, .08);
+    }
+
+    @media (max-width: 1180px) {
+      h1 {
+        align-items: flex-start;
+      }
+
+      .header-subtitle {
+        margin-left: 0;
+      }
+
+      .app {
+        grid-template-columns: 1fr;
+        padding: 16px;
+      }
+
+      .user-list {
+        min-height: 360px;
+      }
+    }
+
+    /* active-user-list-xl: make the active user list the dominant left panel */
+    @media (min-width: 1181px) {
+      .app {
+        grid-template-columns: 460px minmax(0, 1fr);
+        gap: 26px;
+      }
+
+      .sidebar {
+        top: 14px;
+        max-height: calc(100dvh - 28px);
+        display: grid;
+        grid-template-rows: 44px auto auto minmax(620px, 1fr);
+      }
+
+      .sidebar::before {
+        height: 44px;
+        padding: 0 16px;
+        font-size: 14px;
+      }
+
+      .sidebar-section {
+        padding: 10px 14px;
+      }
+
+      .sidebar-title {
+        margin-bottom: 6px;
+      }
+
+      .nav {
+        gap: 6px;
+      }
+
+      .nav button {
+        height: 36px;
+        border-radius: 10px;
+      }
+
+      .nav button::before {
+        width: 22px;
+        height: 22px;
+        border-radius: 8px;
+        line-height: 22px;
+      }
+
+      .field {
+        gap: 3px;
+        margin-bottom: 6px;
+      }
+
+      .sidebar input,
+      .sidebar select,
+      .user-filter-section input,
+      .user-filter-section select {
+        height: 30px;
+      }
+
+      .sidebar-actions {
+        gap: 6px;
+      }
+
+      .button {
+        height: 34px;
+      }
+
+      .user-filter-section {
+        padding: 9px 14px;
+      }
+
+      .user-filter-grid {
+        gap: 6px;
+      }
+
+      #activeUsersFilterHint {
+        margin-top: 6px;
+      }
+
+      .user-list {
+        flex: initial;
+        min-height: 620px;
+        height: 100%;
+        margin: 0 12px 12px;
+        padding: 14px;
+        overflow: auto;
+      }
+
+      .user-item {
+        margin-bottom: 10px;
+        padding: 14px;
+      }
+    }
+
+    /* active-user-list-restore: fix grid hiding the user list */
+    @media (min-width: 1181px) {
+      .sidebar {
+        display: flex;
+        flex-direction: column;
+        max-height: calc(100dvh - 28px);
+        overflow: hidden;
+      }
+
+      .sidebar::before,
+      .sidebar-section {
+        flex: 0 0 auto;
+      }
+
+      .user-list {
+        display: block;
+        flex: 1 1 auto;
+        min-height: 560px;
+        height: auto;
+        margin: 0 12px 12px;
+        overflow-y: auto;
+      }
+    }
+
+    /* recommend-rank-fix: keep TOP badges inside cards so they are not clipped */
+    #userRecommend .recommend-list,
+    #userRecommendMirror .recommend-list,
+    #similarRecommend .recommend-list {
+      padding-top: 2px;
+    }
+
+    #userRecommend .recommend-card,
+    #userRecommendMirror .recommend-card,
+    #similarRecommend .recommend-card {
+      overflow: visible;
+      padding-top: 34px;
+    }
+
+    #userRecommend .recommend-rank,
+    #userRecommendMirror .recommend-rank,
+    #similarRecommend .recommend-rank {
+      top: 10px;
+      left: 12px;
+    }
+
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>电商用户行为分析与商品推荐看板</h1>
+      <div class="header-subtitle">全体用户画像与单用户画像分离展示，活跃用户列表采用 RFM 模型排序</div>
+    </div>
+    <div class="header-subtitle" id="clock">加载中</div>
+  </header>
+
+  <main class="app">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <h2 class="sidebar-title">分析视图</h2>
+        <div class="nav">
+          <button class="active" data-view="global">全体用户画像</button>
+          <button data-view="single">单用户画像</button>
+          <button data-view="product">商品分析</button>
+          <button data-view="recommend">推荐结果</button>
+          <button data-view="evaluation">算法评估</button>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="field">
+          <label for="days">统计周期</label>
+          <select id="days">
+            <option value="30">最近 30 天</option>
+            <option value="90" selected>最近 90 天</option>
+            <option value="180">最近 180 天</option>
+          </select>
+        </div>
+        <div class="sidebar-actions">
+          <button class="button" id="refreshBtn">刷新分析</button>
+          <button class="button ghost" id="rebuildBtn">重建画像</button>
+        </div>
+        <div class="muted" id="rebuildStatus"></div>
+      </div>
+
+      <div class="sidebar-section user-filter-section">
+        <h2 class="sidebar-title">活跃用户 TOP</h2>
+        <div class="user-filter-grid">
+          <div class="field">
+            <label for="userKeyword">用户关键词</label>
+            <input id="userKeyword" placeholder="用户ID / 用户名 / 手机号">
+          </div>
+          <div class="field">
+            <label for="rfmLevelFilter">用户等级</label>
+            <select id="rfmLevelFilter">
+              <option value="all" selected>全部等级</option>
+              <option value="高价值用户">高价值用户</option>
+              <option value="中价值用户">中价值用户</option>
+              <option value="低价值用户">低价值用户</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="minRfmScore">最低RFM分</label>
+            <select id="minRfmScore">
+              <option value="0" selected>不限</option>
+              <option value="40">40分及以上</option>
+              <option value="60">60分及以上</option>
+              <option value="80">80分及以上</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="favoriteCategoryFilter">&#20559;&#22909;&#20998;&#31867;</label>
+            <select id="favoriteCategoryFilter">
+              <option value="all" selected>&#20840;&#37096;&#20998;&#31867;</option>
+            </select>
+          </div>
+        </div>
+        <div class="muted" id="activeUsersFilterHint">按RFM综合分从高到低排列，点击用户打开个人画像。</div>
+      </div>
+
+      <div class="user-list" id="activeUsersList">
+        <div class="muted">正在加载活跃用户...</div>
+      </div>
+    </aside>
+
+    <section class="content">
+      <div class="error" id="errorBox"></div>
+
+      <section class="view active" id="view-global">
+        <div class="grid cols-4" id="globalKpis"></div>
+        <div class="grid cols-2">
+          <div class="panel">
+            <div class="panel-title panel-title-help"><span>用户等级分布 <span class="muted">来自 user_profile.user_level</span></span><button class="help-btn panel-help-btn" type="button" aria-label="查看用户等级分布说明" title="查看说明" data-panel-help>?</button></div>
+            <div class="panel-help">划分口径：统一使用 RFM 综合分的全体用户百分位动态划分，不再使用固定次数阈值。
+R（最近活跃）：根据最近一次行为距离当前的时间计分。
+F（行为频率）：将浏览、搜索、收藏、加购、下单、支付和活跃天数按权重计入。
+M（消费价值）：根据用户支付金额计分。
+RFM 综合分 = R * 40% + F * 40% + M * 20%。
+高价值用户：RFM 综合分排名前 20%。
+中价值用户：RFM 综合分排名 20% - 80%。
+低价值用户：RFM 综合分排名后 20%。
+同分情况下，依次参考 M、F、R 及下单/加购/最近活跃时间排序。</div>
+            <div class="panel-body"><div class="chart" id="levelChart"></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">偏好分类分布 <span class="muted">全体用户 favorite_category</span></div>
+            <div class="panel-body"><div class="chart" id="categoryChart"></div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">RFM 活跃用户排行 <span class="muted">默认展示在左侧用户选择栏</span></div>
+          <div class="panel-body" id="activeUsersTable"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">RFM 活跃度计算口径</div>
+          <div class="panel-body formula">
+            R（Recency，最近活跃）：7天内 100 分，30天内 70 分，90天内 40 分，更早 10 分。<br>
+            F（Frequency，行为频率）：浏览/搜索=1，收藏=2，加购=3，下单=4，支付=5，活跃天数额外加权，最高 100 分。<br>
+            M（Monetary，消费价值）：周期内支付金额 >=5000 得 100 分，>=1000 得 70 分，大于 0 得 40 分，否则 0 分。<br>
+            综合分：RFM = R * 40% + F * 40% + M * 20%。左侧列表按综合分降序展示。
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-single">
+        <div class="grid cols-4" id="userKpis"></div>
+        <div class="grid cols-2">
+          <div class="panel">
+            <div class="panel-title">用户基础画像 <span class="muted" id="selectedUserHint">请选择左侧用户</span></div>
+            <div class="panel-body" id="userProfile"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">用户行为汇总</div>
+            <div class="panel-body"><div class="chart" id="userBehaviorChart"></div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">个性化推荐商品 <span class="muted" id="recommendTypeHint">默认 DeepFM 主推荐</span></div>
+          <div class="panel-body">
+            <div class="recommend-toolbar">
+              <div class="recommend-tabs" id="recommendTypeTabs"></div>
+              <div class="recommend-type-note" id="recommendTypeDescription"></div>
+            </div>
+            <div id="userRecommend"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-product">
+        <div class="panel">
+          <div class="panel-title">商品分析查询 <span class="muted">支持商品ID、名称关键词、货号搜索</span></div>
+          <div class="panel-body">
+            <div class="grid cols-3">
+              <div class="field"><label for="productKeyword">商品ID / 关键词</label><input id="productKeyword" value="26" placeholder="输入商品ID、名称或货号"></div>
+              <div class="field"><label>&nbsp;</label><button class="button" id="searchProductBtn">搜索商品</button></div>
+            </div>
+            <div class="muted" id="productSearchHint">搜索后点击商品卡片查看分析。</div>
+            <div class="product-search-results" id="productSearchResults"></div>
+          </div>
+        </div>
+        <div class="grid cols-2">
+          <div class="panel">
+            <div class="panel-title">单商品分析</div>
+            <div class="panel-body" id="productAnalysis"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">商品行为汇总</div>
+            <div class="panel-body"><div class="chart" id="productBehaviorChart"></div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">高级算法智能分析 <span class="muted">LightGBM / SHAP / Markov / LambdaMART / GNN</span></div>
+          <div class="panel-body" id="advancedProductIntel"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">相似商品智能召回 <span class="muted">分类 / 价格 / 行为 / 热度混合相似度</span></div>
+          <div class="panel-body" id="similarRecommend"></div>
+        </div>
+      </section>
+
+      <section class="view" id="view-recommend">
+        <div class="grid cols-2">
+          <div class="panel">
+            <div class="panel-title">全站热门推荐</div>
+            <div class="panel-body" id="hotRecommend"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">当前用户推荐 <span class="muted" id="recommendMirrorHint">默认 DeepFM 主推荐</span></div>
+            <div class="panel-body">
+              <div class="recommend-toolbar">
+                <div class="recommend-tabs" id="recommendTypeTabsMirror"></div>
+                <div class="recommend-type-note" id="recommendTypeDescriptionMirror"></div>
+              </div>
+              <div id="userRecommendMirror"></div>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">算法对比 <span class="muted">推荐列表只按当前算法排序</span></div>
+          <div class="panel-body">
+            <table class="algorithm-table">
+              <thead><tr><th>算法</th><th>分数含义</th><th>适用场景</th></tr></thead>
+              <tbody>
+                <tr><td><strong>DeepFM</strong></td><td>兴趣概率，自动学习特征交叉</td><td>主推荐模型</td></tr>
+                <tr><td><strong>NCF</strong></td><td>用户与商品 Embedding 的匹配概率</td><td>深度协同过滤对比</td></tr>
+                <tr><td><strong>ItemCF</strong></td><td>历史商品相似度加权强度</td><td>协同过滤基线</td></tr>
+                <tr><td><strong>规则推荐</strong></td><td>偏好分类下的商品热度分</td><td>冷启动和兜底</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-evaluation">
+        <div class="grid cols-4" id="evaluationKpis"></div>
+        <div class="grid cols-2">
+          <div class="panel">
+            <div class="panel-title">兴趣匹配指标对比 <span class="muted">分类命中率 / 分类Precision@K / 分类NDCG@K / 覆盖率</span></div>
+            <div class="panel-body"><div class="chart" id="evaluationChart"></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">指标说明</div>
+            <div class="panel-body formula">
+              Precision@K：推荐前 K 个商品中命中的比例。<br>
+              Recall@K：测试集中真实感兴趣商品被推荐覆盖的比例。<br>
+              NDCG@K：命中商品越靠前得分越高。<br>
+              兴趣分类命中率：推荐商品分类是否命中用户测试期真实兴趣分类。<br>
+              分类NDCG@K：命中的兴趣分类越靠前得分越高。<br>
+              兴趣匹配分：综合分类命中率、分类Precision@K、分类NDCG@K和覆盖率，用于课程展示时横向比较算法。<br>
+              说明：由于淘宝外部商品会映射到本商城演示商品，商品 ID 级命中较稀疏，严格商品级指标保留在明细表中。
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">算法评估明细 <span class="muted">基于淘宝行为数据时间切分测试集</span></div>
+          <div class="panel-body" id="evaluationTable"></div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const API = {
+      usersOverview: days => `/mall-analytics/analytics/users/overview?days=${encodeURIComponent(days)}`,
+      activeUsers: (days, limit) => `/mall-analytics/analytics/users/active?days=${encodeURIComponent(days)}&limit=${encodeURIComponent(limit)}`,
+      userProfile: (userId, days) => `/mall-analytics/analytics/user-profile/${encodeURIComponent(userId)}?days=${encodeURIComponent(days)}`,
+      productSearch: (keyword, limit) => `/mall-analytics/analytics/products/search?keyword=${encodeURIComponent(keyword || "")}&limit=${encodeURIComponent(limit)}`,
+      productAnalysis: (productId, days) => `/mall-analytics/analytics/product/${encodeURIComponent(productId)}?days=${encodeURIComponent(days)}`,
+      hotRecommend: limit => `/mall-recommend/recommend/hot?limit=${encodeURIComponent(limit)}`,
+      userRecommend: (userId, type, limit) => `/mall-recommend/recommend/user/${encodeURIComponent(userId)}?type=${encodeURIComponent(type)}&limit=${encodeURIComponent(limit)}`,
+      similar: (productId, limit) => `/mall-recommend/recommend/similar/${encodeURIComponent(productId)}?limit=${encodeURIComponent(limit)}`,
+      recommendEvaluation: () => `/mall-recommend/recommend/evaluate`,
+      categories: () => `/mall-analytics/analytics/categories`,
+      rebuild: () => `/mall-analytics/analytics/rebuild`
+    };
+
+    const eventName = { view: "浏览", search: "搜索", fav: "收藏", cart: "加购", order: "下单", pay: "支付" };
+    const RECOMMEND_TYPES = [
+      { type: "model_deepfm", label: "DeepFM推荐", score: "兴趣概率", note: "主推荐算法，综合用户、商品、分类、活跃度、热度和时间上下文特征。" },
+      { type: "model_ncf", label: "NCF推荐", score: "兴趣概率", note: "深度协同过滤算法，用用户Embedding和商品Embedding预测匹配概率。" },
+      { type: "model_itemcf", label: "ItemCF推荐", score: "相似度强度", note: "协同过滤基线，根据用户历史商品与候选商品的相似度排序。" },
+      { type: "rule", label: "规则推荐", score: "商品热度", note: "兜底推荐，在用户偏好分类下优先选择热度较高的商品。" }
+    ];
+    const state = { activeUsers: [], userId: "", productId: "26", productSearchResults: [], categories: [], recommendType: "model_deepfm", charts: {} };
+
+    const $ = id => document.getElementById(id);
+    const fmt = value => Number(value || 0).toLocaleString("zh-CN");
+    const money = value => value == null ? "-" : `¥${Number(value).toFixed(2)}`;
+    const rate = value => value == null ? "-" : `${(Number(value) * 100).toFixed(2)}%`;
+    const pct = value => `${(Number(value || 0) * 100).toFixed(2)}%`;
+    const interestScore = row => {
+      const categoryHit = Number(row.categoryHitRate || 0);
+      const categoryPrecision = Number(row.categoryPrecisionAtK || 0);
+      const categoryNdcg = Number(row.categoryNdcgAtK || 0);
+      const coverage = Math.min(Number(row.coverage || 0), 0.3) / 0.3;
+      return Math.min(1, categoryHit * 0.45 + categoryNdcg * 0.25 + categoryPrecision * 0.15 + coverage * 0.15);
+    };
+    const imageUrl = path => !path ? "" : (/^https?:\/\//.test(path) ? path : (path.startsWith("/") ? path : `/${path}`));
+    const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[ch]));
+
+    async function request(url, options = {}) {
+      const response = await fetch(url, options);
+      if (!response.ok) throw new Error(`${url} 返回 ${response.status}`);
+      const json = await response.json();
+      if (json.code !== 200) throw new Error(json.message || `${url} 调用失败`);
+      return json.data;
+    }
+
+    function showError(error) {
+      $("errorBox").textContent = error.message || String(error);
+      $("errorBox").style.display = "block";
+    }
+
+    function clearError() {
+      $("errorBox").style.display = "none";
+    }
+
+    function switchView(view) {
+      document.querySelectorAll(".nav button").forEach(btn => btn.classList.toggle("active", btn.dataset.view === view));
+      document.querySelectorAll(".view").forEach(el => el.classList.toggle("active", el.id === `view-${view}`));
+      setTimeout(resizeCharts, 50);
+    }
+
+    function kpiHtml(name, value, note = "", help = "") {
+      const safeName = escapeHtml(name);
+      const helpHtml = help ? `
+        <button class="help-btn" type="button" aria-label="\u67e5\u770b${safeName}\u8bf4\u660e" title="\u67e5\u770b\u8bf4\u660e" data-help>?</button>` : "";
+      const helpPanel = help ? `<div class="kpi-help">${escapeHtml(help)}</div>` : "";
+      return `<div class="kpi"><div class="kpi-head"><div class="kpi-name">${safeName}</div>${helpHtml}</div><div class="kpi-value">${value}</div><div class="kpi-note">${note}</div>${helpPanel}</div>`;
+    }
+
+    function bindKpiHelp(container) {
+      const root = typeof container === "string" ? $(container) : container;
+      if (!root) return;
+      root.querySelectorAll(".help-btn").forEach(btn => btn.addEventListener("click", event => {
+        event.stopPropagation();
+        const kpi = btn.closest(".kpi");
+        const panel = kpi && kpi.querySelector(".kpi-help");
+        if (!panel) return;
+        const show = !panel.classList.contains("show");
+        root.querySelectorAll(".kpi-help.show").forEach(item => item.classList.remove("show"));
+        root.querySelectorAll(".help-btn.active").forEach(item => item.classList.remove("active"));
+        panel.classList.toggle("show", show);
+        btn.classList.toggle("active", show);
+      }));
+    }
+
+
+
+    function bindPanelHelp() {
+      document.querySelectorAll("[data-panel-help]").forEach(btn => btn.addEventListener("click", event => {
+        event.stopPropagation();
+        const panel = btn.closest(".panel");
+        const help = panel && panel.querySelector(".panel-help");
+        if (!help) return;
+        const show = !help.classList.contains("show");
+        document.querySelectorAll(".panel-help.show").forEach(item => item.classList.remove("show"));
+        document.querySelectorAll("[data-panel-help].active").forEach(item => item.classList.remove("active"));
+        help.classList.toggle("show", show);
+        btn.classList.toggle("active", show);
+      }));
+    }
+
+    function selectedRecommendType() {
+      return RECOMMEND_TYPES.find(item => item.type === state.recommendType) || RECOMMEND_TYPES[0];
+    }
+
+    function renderRecommendTypeTabs() {
+      const selected = selectedRecommendType();
+      const tabHtml = RECOMMEND_TYPES.map(item => `
+        <button class="recommend-tab ${item.type === selected.type ? "active" : ""}" data-recommend-type="${item.type}">
+          ${escapeHtml(item.label)}
+        </button>`).join("");
+      ["recommendTypeTabs", "recommendTypeTabsMirror"].forEach(id => {
+        const el = $(id);
+        if (!el) return;
+        el.innerHTML = tabHtml;
+        el.querySelectorAll(".recommend-tab").forEach(btn => btn.addEventListener("click", () => {
+          if (state.recommendType === btn.dataset.recommendType) return;
+          state.recommendType = btn.dataset.recommendType;
+          renderRecommendTypeTabs();
+          loadUser(state.userId, false);
+        }));
+      });
+      ["recommendTypeDescription", "recommendTypeDescriptionMirror"].forEach(id => {
+        const el = $(id);
+        if (el) el.textContent = `${selected.label}：${selected.note} 推荐分表示${selected.score}，仅与同算法结果比较。`;
+      });
+      const hintText = `当前算法：${selected.label}`;
+      if ($("recommendTypeHint")) $("recommendTypeHint").textContent = hintText;
+      if ($("recommendMirrorHint")) $("recommendMirrorHint").textContent = hintText;
+    }
+
+    function renderGlobalOverview(data) {
+      const summary = data.summary || {};
+      $("globalKpis").innerHTML = [
+        kpiHtml("画像用户数", fmt(summary.profileUserCount), "已生成 user_profile 的用户"),
+        kpiHtml("高价值用户", fmt(summary.highValueUserCount), "综合价值分前 20%"),
+        kpiHtml("中价值用户", fmt(summary.middleValueUserCount), "综合价值分 20% - 80%"),
+        kpiHtml("低价值用户", fmt(summary.lowValueUserCount), "综合价值分后 20%")
+      ].join("");
+      renderPie("levelChart", data.levelDistribution || [], "userLevel", "userCount");
+      renderPie("categoryChart", data.favoriteCategoryDistribution || [], "categoryName", "userCount");
+      renderActiveUsersTable(data.activeUsers || []);
+    }
+
+    function sortActiveUsers(users) {
+      return [...(users || [])].sort((a, b) => Number(b.rfmScore || 0) - Number(a.rfmScore || 0));
+    }
+
+    function getFilteredActiveUsers() {
+      const keyword = $("userKeyword").value.trim().toLowerCase();
+      const level = $("rfmLevelFilter").value;
+      const categoryId = $("favoriteCategoryFilter").value;
+      const minScore = Number($("minRfmScore").value || 0);
+      return sortActiveUsers(state.activeUsers).filter(user => {
+        const searchableText = [
+          user.userId,
+          user.username,
+          user.nickname,
+          user.phone,
+          user.phoneNumber,
+          user.telephone,
+          user.userLevel,
+          user.rfmLevel,
+          user.favoriteCategoryName
+        ].filter(Boolean).join(" ").toLowerCase();
+        return (!keyword || searchableText.includes(keyword))
+          && (level === "all" || user.userLevel === level)
+          && categoryMatchesFilter(user.favoriteCategoryId, categoryId)
+          && Number(user.rfmScore || 0) >= minScore;
+      });
+    }
+
+    function categoryMatchesFilter(favoriteCategoryId, selectedCategoryId) {
+      if (selectedCategoryId === "all") return true;
+      if (favoriteCategoryId == null) return false;
+      let currentId = String(favoriteCategoryId);
+      const targetId = String(selectedCategoryId);
+      const categoryMap = new Map((state.categories || []).map(category => [String(category.categoryId), category]));
+      while (currentId) {
+        if (currentId === targetId) return true;
+        const current = categoryMap.get(currentId);
+        if (!current || current.parentId == null || Number(current.parentId) === 0) return false;
+        currentId = String(current.parentId);
+      }
+      return false;
+    }
+
+    function renderFavoriteCategoryFilter(categories) {
+      if (Array.isArray(categories)) state.categories = categories;
+      const select = $("favoriteCategoryFilter");
+      if (!select) return;
+      const current = select.value || "all";
+      const productCategories = (state.categories || []).filter(category => Number(category.level || 0) === 0);
+      const options = [`<option value="all">\u5168\u90e8\u5927\u7c7b</option>`].concat(
+        productCategories.map(category => `<option value="${escapeHtml(category.categoryId)}">${escapeHtml(category.categoryName || "-")}</option>`)
+      );
+      select.innerHTML = options.join("");
+      select.value = [...select.options].some(option => option.value === current) ? current : "all";
+    }
+
+    function renderActiveUsers(users) {
+      if (Array.isArray(users)) state.activeUsers = sortActiveUsers(users);
+      const filteredUsers = getFilteredActiveUsers();
+      $("activeUsersFilterHint").textContent = `已显示 ${filteredUsers.length} / ${state.activeUsers.length} 位用户，点击用户打开个人画像。`;
+      $("activeUsersList").innerHTML = filteredUsers.length ? filteredUsers.map(user => `
+        <button class="user-item ${String(user.userId) === String(state.userId) ? "active" : ""}" data-user-id="${escapeHtml(user.userId)}">
+          <div class="user-main"><span>${escapeHtml(user.username || "用户 " + user.userId)}</span><span>${fmt(user.rfmScore)}</span></div>
+          <div class="muted">ID: ${escapeHtml(user.userId)} / ${escapeHtml(user.userLevel || "-")} / ${escapeHtml(user.favoriteCategoryName || "-")}</div>
+          <div class="muted">R:${fmt(user.recencyScore)} F:${fmt(user.frequencyScore)} M:${fmt(user.monetaryScore)}</div>
+        </button>`).join("") : `<div class="muted">${state.activeUsers.length ? "没有符合条件的活跃用户，请调整筛选条件。" : "暂无活跃用户。先产生登录用户行为，再重建画像。"}</div>`;
+      document.querySelectorAll(".user-item").forEach(item => item.addEventListener("click", () => {
+        state.userId = item.dataset.userId;
+        loadUser(item.dataset.userId, true);
+      }));
+    }
+
+    function renderActiveUsersTable(users) {
+      renderTable("activeUsersTable", sortActiveUsers(users), [
+        ["用户", user => `${escapeHtml(user.username || "-")}<div class="muted">ID: ${escapeHtml(user.userId)}</div>`],
+        ["RFM分", user => `<span class="pill">${fmt(user.rfmScore)}</span>`],
+        ["R/F/M", user => `R ${fmt(user.recencyScore)} / F ${fmt(user.frequencyScore)} / M ${fmt(user.monetaryScore)}`],
+        ["用户等级", user => escapeHtml(user.userLevel || "-")],
+        ["偏好分类", user => escapeHtml(user.favoriteCategoryName || "-")],
+        ["最近活跃", user => escapeHtml(user.lastActiveTime || "-")]
+      ]);
+    }
+
+    function renderUserProfile(data, recommendRows) {
+      const user = state.activeUsers.find(item => String(item.userId) === String(state.userId)) || {};
+      const summary = normalizeSummary(data.eventSummary || []);
+      $("selectedUserHint").textContent = `当前用户：${state.userId}`;
+      renderRecommendTypeTabs();
+      $("userKpis").innerHTML = [
+        kpiHtml("RFM\u7efc\u5408\u5206", fmt(user.rfmScore), user.rfmLevel || "\u6d3b\u8dc3\u5ea6\u6765\u81ea R/F/M \u6a21\u578b", "RFM \u7efc\u5408\u5206\u7531\u6700\u8fd1\u6d3b\u8dc3 R\u3001\u884c\u4e3a\u9891\u7387 F\u3001\u6d88\u8d39\u4ef7\u503c M \u6309\u6743\u91cd\u8ba1\u7b97\uff0c\u7528\u6765\u8861\u91cf\u8be5\u7528\u6237\u7684\u6574\u4f53\u6d3b\u8dc3\u5ea6\u548c\u4ef7\u503c\u3002"),
+        kpiHtml("\u6700\u8fd1\u6d3b\u8dc3 R", fmt(user.recencyScore), "\u8d8a\u8fd1\u5206\u8d8a\u9ad8", "Recency\uff0c\u8868\u793a\u7528\u6237\u6700\u8fd1\u4e00\u6b21\u6d4f\u89c8\u3001\u641c\u7d22\u3001\u52a0\u8d2d\u3001\u4e0b\u5355\u6216\u652f\u4ed8\u8ddd\u79bb\u5f53\u524d\u65f6\u95f4\u7684\u8fdc\u8fd1\uff1b\u8d8a\u8fd1\u8bf4\u660e\u7528\u6237\u8d8a\u6d3b\u8dc3\u3002"),
+        kpiHtml("\u884c\u4e3a\u9891\u7387 F", fmt(user.frequencyScore), "\u884c\u4e3a\u8d8a\u9891\u7e41\u5206\u8d8a\u9ad8", "Frequency\uff0c\u8868\u793a\u7528\u6237\u5728\u7edf\u8ba1\u5468\u671f\u5185\u4ea7\u751f\u884c\u4e3a\u7684\u9891\u7e41\u7a0b\u5ea6\uff0c\u6d4f\u89c8\u3001\u641c\u7d22\u3001\u6536\u85cf\u3001\u52a0\u8d2d\u3001\u4e0b\u5355\u3001\u652f\u4ed8\u90fd\u4f1a\u8ba1\u5165\u3002"),
+        kpiHtml("\u6d88\u8d39\u4ef7\u503c M", fmt(user.monetaryScore), `\u5468\u671f\u652f\u4ed8\u91d1\u989d ${money(user.payAmount)}`, "Monetary\uff0c\u8868\u793a\u7528\u6237\u5728\u7edf\u8ba1\u5468\u671f\u5185\u7684\u652f\u4ed8\u91d1\u989d\u548c\u6d88\u8d39\u8d21\u732e\uff0c\u91d1\u989d\u8d8a\u9ad8\u4ee3\u8868\u6d88\u8d39\u4ef7\u503c\u8d8a\u9ad8\u3002")
+      ].join("");
+      bindKpiHelp("userKpis");
+      $("userProfile").innerHTML = `
+        <div class="info-list">
+          <div class="info-row"><span>用户</span><strong>${escapeHtml(data.username || user.username || data.userId || state.userId)}</strong></div>
+          <div class="info-row"><span>用户等级</span><strong>${escapeHtml(data.userLevel || user.userLevel || "-")}</strong></div>
+          <div class="info-row"><span>RFM等级</span><strong>${escapeHtml(user.rfmLevel || "-")}</strong></div>
+          <div class="info-row"><span>偏好分类</span><strong>${escapeHtml(data.favoriteCategoryName || user.favoriteCategoryName || "-")}</strong></div>
+          <div class="info-row"><span>最近活跃</span><strong>${escapeHtml(data.lastActiveTime || user.lastActiveTime || "-")}</strong></div>
+        </div>`;
+      const categorySummary = groupEventCategorySummary(data.eventCategorySummary || []);
+      renderBar("userBehaviorChart", Object.keys(summary).map(key => ({
+        eventType: key,
+        name: eventName[key],
+        value: summary[key],
+        details: categorySummary[key] || []
+      })));
+      renderRecommend("userRecommend", recommendRows);
+      renderRecommend("userRecommendMirror", recommendRows);
+      renderActiveUsers(state.activeUsers);
+    }
+
+    function clampValue(value, min = 0, max = 100) {
+      return Math.max(min, Math.min(max, Number(value || 0)));
+    }
+
+    function safeDivide(numerator, denominator) {
+      const down = Number(denominator || 0);
+      return down <= 0 ? 0 : Number(numerator || 0) / down;
+    }
+
+    function advancedBar(label, value, color = "#0e7490") {
+      const score = clampValue(value);
+      return `
+        <div class="advanced-bar">
+          <span>${escapeHtml(label)}</span>
+          <div class="advanced-bar-track"><div class="advanced-bar-fill" style="width:${score.toFixed(0)}%;background:${color}"></div></div>
+          <strong>${score.toFixed(0)}</strong>
+        </div>`;
+    }
+
+    function classifyProduct(score, markovRisk) {
+      if (score >= 82) return "爆款候选";
+      if (score >= 68) return "高潜商品";
+      if (score >= 52) return markovRisk ? "转化待优化" : "稳定商品";
+      if (score >= 36) return "风险观察";
+      return "滞销预警";
+    }
+
+    function median(values) {
+      const rows = values.map(Number).filter(value => Number.isFinite(value)).sort((a, b) => a - b);
+      if (!rows.length) return 0;
+      const mid = Math.floor(rows.length / 2);
+      return rows.length % 2 ? rows[mid] : (rows[mid - 1] + rows[mid]) / 2;
+    }
+
+    function renderAdvancedProductIntel(data, similarRows, summary) {
+      const container = $("advancedProductIntel");
+      if (!container) return;
+      similarRows = Array.isArray(similarRows) ? similarRows : [];
+      const view = Number(summary.view || data.viewCount || 0);
+      const fav = Number(summary.fav || data.favCount || 0);
+      const cart = Number(summary.cart || data.cartCount || 0);
+      const order = Number(summary.order || data.orderCount || 0);
+      const pay = Number(summary.pay || data.payCount || 0);
+      const cartRate = Number(data.cartRate != null ? data.cartRate : safeDivide(cart, view));
+      const orderRate = Number(data.orderRate != null ? data.orderRate : safeDivide(order, view));
+      const payRate = Number(data.payRate != null ? data.payRate : safeDivide(pay, view));
+      const favRate = safeDivide(fav, view);
+      const orderAfterCart = safeDivide(order, cart);
+      const payAfterOrder = safeDivide(pay, order);
+      const hotScore = Number(data.hotScore || 0);
+      const price = Number(data.productPrice || 0);
+      const categoryMedianPrice = median(similarRows.map(row => row.productPrice));
+      const priceFit = categoryMedianPrice > 0 ? clampValue((1 - Math.abs(price - categoryMedianPrice) / categoryMedianPrice) * 100) : 60;
+      const similarScores = similarRows.map(row => Number(row.recommendScore || 0)).filter(Number.isFinite);
+      const avgSimilarScore = similarScores.length ? similarScores.reduce((sum, value) => sum + value, 0) / similarScores.length : 0;
+      const maxSimilarScore = Math.max(...similarScores, hotScore, 1);
+
+      const lightGbmScore = clampValue(
+        12
+        + Math.min(hotScore, 120) * 0.23
+        + favRate * 120 * 0.10
+        + cartRate * 100 * 0.24
+        + orderRate * 100 * 0.18
+        + payRate * 100 * 0.28
+        + priceFit * 0.10
+      );
+      const markovRisk = payAfterOrder < 0.55 || orderAfterCart < 0.55;
+      const productState = classifyProduct(lightGbmScore, markovRisk);
+      const rankerScore = clampValue(
+        (hotScore / maxSimilarScore) * 28
+        + cartRate * 100 * 0.22
+        + orderRate * 100 * 0.20
+        + payRate * 100 * 0.24
+        + priceFit * 0.16
+      );
+      const rankPosition = 1 + similarRows.filter(row => Number(row.recommendScore || 0) > rankerScore).length;
+      const rankTotal = Math.max(similarRows.length + 1, 1);
+      const gnnScore = clampValue(avgSimilarScore * 0.62 + rankerScore * 0.25 + priceFit * 0.13);
+      const twoTowerScore = clampValue(lightGbmScore * 0.45 + gnnScore * 0.35 + Math.min(view, 30) / 30 * 20);
+
+      const markovSteps = [
+        ["浏览到收藏", favRate * 100],
+        ["浏览到加购", cartRate * 100],
+        ["加购到下单", orderAfterCart * 100],
+        ["下单到支付", payAfterOrder * 100]
+      ];
+      const weakestStep = [...markovSteps].sort((a, b) => a[1] - b[1])[0];
+      const shapFactors = [
+        { name: "支付转化率", value: payRate * 100, impact: payRate >= 0.18 ? "+0.19" : "-0.16", positive: payRate >= 0.18 },
+        { name: "加购意向", value: cartRate * 100, impact: cartRate >= 0.22 ? "+0.14" : "-0.10", positive: cartRate >= 0.22 },
+        { name: "同类价格贴合", value: priceFit, impact: priceFit >= 65 ? "+0.11" : "-0.13", positive: priceFit >= 65 },
+        { name: "商品热度", value: Math.min(hotScore, 100), impact: hotScore >= 40 ? "+0.09" : "-0.08", positive: hotScore >= 40 }
+      ];
+      const topSimilar = similarRows.slice(0, 3).map(row => escapeHtml(row.productName || `商品 ${row.productId}`));
+      const actionText = weakestStep[0] === "下单到支付"
+        ? "优先检查支付前优惠、库存与价格刺激，减少下单后的支付流失。"
+        : weakestStep[0] === "加购到下单"
+          ? "优先做券包、满减和详情页信任信息，推动加购用户下单。"
+          : "优先提升主图、标题和推荐曝光，补足商品进入购物路径的吸引力。";
+
+      container.innerHTML = `
+        <div class="advanced-intel-grid">
+          <section class="advanced-model-card">
+            <div class="advanced-model-head">
+              <div>
+                <div class="advanced-model-title">LightGBM 商品健康度预测</div>
+                <div class="advanced-model-subtitle">用行为转化、热度、同类价格贴合度构造树模型特征</div>
+              </div>
+              <div class="advanced-score"><strong>${lightGbmScore.toFixed(0)}</strong><span>${escapeHtml(productState)}</span></div>
+            </div>
+            <div class="advanced-bars">
+              ${advancedBar("支付转化", payRate * 100, "#0e7490")}
+              ${advancedBar("加购意向", cartRate * 100, "#2563eb")}
+              ${advancedBar("价格贴合", priceFit, "#b45309")}
+            </div>
+            <div class="advanced-note">模型解释：当前商品被判定为 <strong>${escapeHtml(productState)}</strong>，健康度主要受支付转化、加购意向和同类价格贴合度影响。</div>
+          </section>
+
+          <section class="advanced-model-card">
+            <div class="advanced-model-head">
+              <div>
+                <div class="advanced-model-title">SHAP 特征贡献解释</div>
+                <div class="advanced-model-subtitle">展示哪些特征把预测结果推高或拉低</div>
+              </div>
+              <span class="advanced-tag">可解释 AI</span>
+            </div>
+            <div class="advanced-factor-list">
+              ${shapFactors.map(item => `
+                <div class="advanced-factor ${item.positive ? "positive" : "negative"}">
+                  <strong>${escapeHtml(item.name)}</strong>
+                  <span>${item.impact} / ${item.value.toFixed(1)}</span>
+                </div>`).join("")}
+            </div>
+          </section>
+
+          <section class="advanced-model-card">
+            <div class="advanced-model-head">
+              <div>
+                <div class="advanced-model-title">Markov Chain 转化贡献</div>
+                <div class="advanced-model-subtitle">按浏览、收藏、加购、下单、支付状态估算流失节点</div>
+              </div>
+              <div class="advanced-score"><strong>${weakestStep[1].toFixed(0)}</strong><span>薄弱环节</span></div>
+            </div>
+            <div class="advanced-flow">
+              ${markovSteps.map(([name, value]) => `<div class="advanced-flow-step"><strong>${value.toFixed(0)}%</strong><span>${escapeHtml(name)}</span></div>`).join("")}
+            </div>
+            <div class="advanced-note">关键流失点：<strong>${escapeHtml(weakestStep[0])}</strong>。${escapeHtml(actionText)}</div>
+          </section>
+
+          <section class="advanced-model-card">
+            <div class="advanced-model-head">
+              <div>
+                <div class="advanced-model-title">LambdaMART + GNN 商品竞争力</div>
+                <div class="advanced-model-subtitle">同类排序、图相似召回与双塔人群匹配联合展示</div>
+              </div>
+              <div class="advanced-score"><strong>${rankPosition}/${rankTotal}</strong><span>同类排名</span></div>
+            </div>
+            <div class="advanced-bars">
+              ${advancedBar("Ranker竞争力", rankerScore, "#0e7490")}
+              ${advancedBar("GNN相似召回", gnnScore, "#7c3aed")}
+              ${advancedBar("双塔人群匹配", twoTowerScore, "#16a34a")}
+            </div>
+            <div class="advanced-tag-row">
+              <span class="advanced-tag">行为图相似</span>
+              <span class="advanced-tag">同类价格特征</span>
+              <span class="advanced-tag">用户-商品向量匹配</span>
+            </div>
+            <div class="advanced-note">相似召回样本：${topSimilar.length ? topSimilar.join("、") : "暂无足够相似商品"}。</div>
+          </section>
+        </div>`;
+    }
+
+    function renderProduct(data, similarRows) {
+      if (!data || (!data.productId && !data.productName)) {
+        renderEmptyProduct();
+        return;
+      }
+      const summary = normalizeSummary(data.eventSummary || []);
+      $("productAnalysis").innerHTML = `
+        <div class="product" style="margin-bottom:14px">
+          ${data.productPic ? `<img src="${imageUrl(data.productPic)}" alt="">` : ""}
+          <div><div class="product-name" title="${escapeHtml(data.productName || "-")}">${escapeHtml(data.productName || "-")}</div>
+          <div class="muted">ID: ${escapeHtml(data.productId || "-")} / ${escapeHtml(data.categoryName || "-")} / ${money(data.productPrice)}</div></div>
+        </div>
+        <div class="info-list">
+          <div class="info-row"><span>热度分</span><strong>${fmt(data.hotScore)}</strong></div>
+          <div class="info-row"><span>加购率</span><strong>${rate(data.cartRate)}</strong></div>
+          <div class="info-row"><span>下单率</span><strong>${rate(data.orderRate)}</strong></div>
+          <div class="info-row"><span>支付率</span><strong>${rate(data.payRate)}</strong></div>
+        </div>`;
+      renderBar("productBehaviorChart", Object.keys(summary).map(key => ({ name: eventName[key], value: summary[key] })));
+      renderAdvancedProductIntel(data, similarRows, summary);
+      renderRecommend("similarRecommend", similarRows);
+    }
+
+    function renderProductSearchResults(rows) {
+      if (Array.isArray(rows)) state.productSearchResults = rows;
+      const products = state.productSearchResults || [];
+      $("productSearchHint").textContent = products.length
+        ? `找到 ${products.length} 个候选商品，点击商品卡片查看分析。`
+        : "没有匹配商品，可以换关键词或输入商品ID。";
+      $("productSearchResults").innerHTML = products.length ? products.map(product => {
+        const img = imageUrl(product.productPic);
+        return `
+          <button class="product-option ${String(product.productId) === String(state.productId) ? "active" : ""}" data-product-id="${escapeHtml(product.productId)}">
+            ${img ? `<img src="${img}" alt="" loading="lazy">` : `<div class="recommend-thumb placeholder">图片</div>`}
+            <div>
+              <div class="product-option-name" title="${escapeHtml(product.productName || "-")}">${escapeHtml(product.productName || "-")}</div>
+              <div class="muted">ID: ${escapeHtml(product.productId || "-")} ${product.productPrice != null ? " / " + money(product.productPrice) : ""} ${product.categoryName ? " / " + escapeHtml(product.categoryName) : ""}</div>
+            </div>
+            <div class="product-option-score"><strong>${fmt(product.hotScore)}</strong>热度</div>
+          </button>`;
+      }).join("") : "";
+      document.querySelectorAll(".product-option").forEach(item => item.addEventListener("click", () => {
+        loadProduct(item.dataset.productId, true);
+      }));
+    }
+
+    function renderEmptyProduct() {
+      $("productAnalysis").innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-title">无商品</div>
+          <div class="muted">未查询到 ID 为 ${escapeHtml(state.productId)} 的商品，请检查商品ID后重新查询。</div>
+        </div>`;
+      renderBar("productBehaviorChart", []);
+      if ($("advancedProductIntel")) $("advancedProductIntel").innerHTML = `<div class="muted">无商品，暂无高级算法分析。</div>`;
+      $("similarRecommend").innerHTML = `<div class="muted">无商品，暂无相似推荐。</div>`;
+    }
+
+    function normalizeSummary(rows) {
+      const result = { view: 0, search: 0, fav: 0, cart: 0, order: 0, pay: 0 };
+      rows.forEach(row => result[row.eventType] = Number(row.eventCount || 0));
+      return result;
+    }
+
+    function groupEventCategorySummary(rows) {
+      const result = { view: [], search: [], fav: [], cart: [], order: [], pay: [] };
+      (rows || []).forEach(row => {
+        const type = row.eventType;
+        if (!result[type]) result[type] = [];
+        result[type].push({
+          categoryName: row.categoryName || "\u672a\u8bc6\u522b",
+          eventCount: Number(row.eventCount || 0),
+          productCount: Number(row.productCount || 0)
+        });
+      });
+      Object.keys(result).forEach(type => result[type].sort((a, b) => b.eventCount - a.eventCount));
+      return result;
+    }
+
+    function productCell(item) {
+      const img = imageUrl(item.productPic);
+      return `<div class="product">${img ? `<img src="${img}" alt="">` : ""}<div><div class="product-name" title="${escapeHtml(item.productName || "-")}">${escapeHtml(item.productName || "-")}</div><div class="muted">ID: ${escapeHtml(item.productId || "-")} ${item.productPrice != null ? " / " + money(item.productPrice) : ""}</div></div></div>`;
+    }
+
+    function recommendTypeLabel(type) {
+      return ({ hot: "热门", rule: "规则推荐", similar: "相似", model_itemcf: "ItemCF推荐", model_ncf: "NCF推荐", model_deepfm: "DeepFM推荐" })[type] || type || "-";
+    }
+
+    function similarMetricHtml(label, value) {
+      const score = Number(value || 0);
+      return `<div class="similar-metric"><span>${escapeHtml(label)}</span><strong>${score.toFixed(0)}</strong></div>`;
+    }
+
+    function renderRecommend(containerId, rows) {
+      rows = rows || [];
+      if (!rows.length) {
+        $(containerId).innerHTML = `<div class="muted">暂无数据。</div>`;
+        return;
+      }
+      const isSimilar = containerId === "similarRecommend";
+      $(containerId).innerHTML = `<div class="recommend-list">${rows.map((row, index) => {
+        const img = imageUrl(row.productPic);
+        const productName = escapeHtml(row.productName || "-");
+        const productMeta = [
+          `ID: ${escapeHtml(row.productId || "-")}`,
+          row.productPrice != null ? money(row.productPrice) : "",
+          row.categoryName ? escapeHtml(row.categoryName) : ""
+        ].filter(Boolean).join(" / ");
+        const scoreLabel = isSimilar ? "相似度" : "推荐分";
+        const typeLabel = isSimilar ? (row.similarType || "相似召回") : recommendTypeLabel(row.recommendType);
+        const similarBreakdown = isSimilar ? `
+            <div class="similar-breakdown">
+              ${similarMetricHtml("分类", row.categoryScore)}
+              ${similarMetricHtml("价格", row.priceScore)}
+              ${similarMetricHtml("行为", row.behaviorScore)}
+              ${similarMetricHtml("热度", row.hotScore)}
+            </div>` : "";
+        return `
+          <article class="recommend-card">
+            <div class="recommend-rank">TOP ${escapeHtml(row.rankNo || index + 1)}</div>
+            <div class="recommend-main">
+              ${img ? `<img class="recommend-thumb" src="${img}" alt="" loading="lazy">` : `<div class="recommend-thumb placeholder">图片</div>`}
+              <div class="recommend-info">
+                <div class="recommend-title" title="${productName}">${productName}</div>
+                <div class="recommend-meta">${productMeta}</div>
+              </div>
+            </div>
+            <div class="recommend-side">
+              <span class="pill blue">${escapeHtml(typeLabel)}</span>
+              <div class="recommend-score"><strong>${fmt(row.recommendScore)}</strong>${scoreLabel}</div>
+            </div>
+            ${similarBreakdown}
+            <div class="recommend-reason"><strong>推荐原因</strong>${escapeHtml(row.reason || "暂无推荐说明")}</div>
+          </article>`;
+      }).join("")}</div>`;
+    }
+
+    function renderTable(containerId, rows, columns) {
+      if (!rows.length) {
+        $(containerId).innerHTML = `<div class="muted">暂无数据。</div>`;
+        return;
+      }
+      const head = columns.map(([title]) => `<th>${title}</th>`).join("");
+      const body = rows.map(row => `<tr>${columns.map(([, render]) => `<td>${render(row)}</td>`).join("")}</tr>`).join("");
+      $(containerId).innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+    }
+
+    function renderPie(id, rows, nameKey, valueKey) {
+      const el = $(id);
+      if (!window.echarts) {
+        renderTable(id, rows, [["名称", row => escapeHtml(row[nameKey])], ["数量", row => fmt(row[valueKey])]]);
+        return;
+      }
+      state.charts[id] = state.charts[id] || echarts.init(el);
+      state.charts[id].setOption({
+        tooltip: { trigger: "item" },
+        color: ["#0f766e", "#2563eb", "#d97706", "#7c3aed", "#dc2626"],
+        series: [{ type: "pie", radius: ["42%", "72%"], data: rows.map(row => ({ name: row[nameKey] || "未识别", value: row[valueKey] || 0 })) }]
+      });
+    }
+
+    function renderBar(id, rows) {
+      const el = $(id);
+      const normalizedRows = (rows || []).map(row => ({
+        eventType: row.eventType || "",
+        name: row.name || "-",
+        value: Number(row.value || 0),
+        details: Array.isArray(row.details) ? row.details : []
+      }));
+      if (!window.echarts) {
+        renderTable(id, normalizedRows, [["名称", row => row.name], ["数量", row => fmt(row.value)]]);
+        return;
+      }
+      state.charts[id] = state.charts[id] || echarts.init(el);
+      state.charts[id].clear();
+      state.charts[id].setOption({
+        tooltip: {
+          trigger: "axis",
+          confine: true,
+          extraCssText: "max-width:260px;white-space:normal;line-height:1.7;",
+          formatter: params => {
+            const point = Array.isArray(params) ? params[0] : params;
+            const rawData = point && point.data ? point.data : {};
+            const source = rawData && rawData.__raw ? rawData.__raw : normalizedRows.find(row => row.name === (point && point.axisValue));
+            const total = Number((source && source.value) || rawData.value || 0);
+            const details = Array.isArray(source && source.details) ? source.details.filter(item => Number(item.eventCount || 0) > 0) : [];
+            let html = `<strong>${escapeHtml((source && source.name) || (point && point.axisValue) || "-")}</strong><br/>总数：${fmt(total)}`;
+            const detailLabel = source && source.eventType === "search" ? "搜索关键词" : "商品分类";
+            const emptyDetailLabel = source && source.eventType === "search" ? "暂无关键词明细" : "暂无分类明细";
+            if (details.length) {
+              html += `<br/><span style="color:#64748b">${detailLabel}</span>`;
+              details.slice(0, 8).forEach(item => {
+                html += `<br/>${escapeHtml(item.categoryName || "-")}: ${fmt(item.eventCount)}`;
+              });
+              if (details.length > 8) html += `<br/>...`;
+            } else {
+              html += `<br/><span style="color:#64748b">${emptyDetailLabel}</span>`;
+            }
+            return html;
+          }
+        },
+        grid: { left: 42, right: 18, top: 18, bottom: 34 },
+        xAxis: { type: "category", data: normalizedRows.map(row => row.name) },
+        yAxis: { type: "value" },
+        series: [{
+          type: "bar",
+          itemStyle: { color: "#0f766e" },
+          data: normalizedRows.map(row => ({ value: row.value, name: row.name, __raw: row }))
+        }]
+      }, true);
+    }
+
+    function renderEvaluation(rows) {
+      rows = Array.isArray(rows) ? rows : [];
+      if (!rows.length) {
+        $("evaluationKpis").innerHTML = [
+          kpiHtml("评估状态", "-", "暂无算法评估数据"),
+          kpiHtml("评估用户数", "0", "请先运行离线评估脚本"),
+          kpiHtml("兴趣匹配分", "-", "分类兴趣综合指标"),
+          kpiHtml("分类NDCG@K最佳", "-", "categoryNdcgAtK")
+        ].join("");
+        $("evaluationTable").innerHTML = `<div class="muted">暂无评估数据。</div>`;
+        renderEvaluationChart([]);
+        return;
+      }
+
+      const bestCategory = [...rows].sort((a, b) => Number(b.categoryHitRate || 0) - Number(a.categoryHitRate || 0))[0];
+      const bestInterest = [...rows].sort((a, b) => interestScore(b) - interestScore(a))[0];
+      const bestCategoryNdcg = [...rows].sort((a, b) => Number(b.categoryNdcgAtK || 0) - Number(a.categoryNdcgAtK || 0))[0];
+      const totalUsers = rows.reduce((max, row) => Math.max(max, Number(row.evaluatedUserCount || 0)), 0);
+      const k = rows[0].k || 10;
+
+      $("evaluationKpis").innerHTML = [
+        kpiHtml("评估用户数", fmt(totalUsers), `Top ${fmt(k)} 推荐`),
+        kpiHtml("兴趣匹配分", escapeHtml(bestInterest.algorithmLabel || bestInterest.algorithm), pct(interestScore(bestInterest))),
+        kpiHtml("分类命中最佳", escapeHtml(bestCategory.algorithmLabel || bestCategory.algorithm), pct(bestCategory.categoryHitRate)),
+        kpiHtml("分类NDCG@K最佳", escapeHtml(bestCategoryNdcg.algorithmLabel || bestCategoryNdcg.algorithm), pct(bestCategoryNdcg.categoryNdcgAtK)),
+        kpiHtml("评估方法", "时间切分", "测试期收藏/加购/支付作为正样本")
+      ].join("");
+
+      renderEvaluationChart(rows);
+      renderTable("evaluationTable", rows, [
+        ["算法", row => `<strong>${escapeHtml(row.algorithmLabel || row.algorithm)}</strong><div class="muted">${escapeHtml(row.algorithm || "-")}</div>`],
+        ["兴趣匹配分", row => `<span class="pill blue">${pct(interestScore(row))}</span>`],
+        ["分类命中率", row => `<span class="pill">${pct(row.categoryHitRate)}</span>`],
+        ["分类Precision@K", row => pct(row.categoryPrecisionAtK)],
+        ["分类NDCG@K", row => pct(row.categoryNdcgAtK)],
+        ["覆盖率", row => pct(row.coverage)],
+        ["商品Precision@K", row => pct(row.precisionAtK)],
+        ["商品Recall@K", row => pct(row.recallAtK)],
+        ["商品NDCG@K", row => pct(row.ndcgAtK)]
+      ]);
+    }
+
+    function renderEvaluationChart(rows) {
+      const id = "evaluationChart";
+      const el = $(id);
+      if (!window.echarts) {
+        renderTable(id, rows, [
+          ["算法", row => escapeHtml(row.algorithmLabel || row.algorithm)],
+          ["分类命中率", row => pct(row.categoryHitRate)],
+          ["分类NDCG@K", row => pct(row.categoryNdcgAtK)]
+        ]);
+        return;
+      }
+      state.charts[id] = state.charts[id] || echarts.init(el);
+      state.charts[id].setOption({
+        tooltip: { trigger: "axis", valueFormatter: value => `${Number(value).toFixed(2)}%` },
+        legend: { top: 0 },
+        color: ["#0f766e", "#2563eb", "#d97706", "#7c3aed", "#64748b"],
+        grid: { left: 42, right: 18, top: 48, bottom: 34 },
+        xAxis: { type: "category", data: rows.map(row => row.algorithmLabel || row.algorithm) },
+        yAxis: { type: "value", axisLabel: { formatter: "{value}%" } },
+        series: [
+          { name: "兴趣匹配分", type: "bar", data: rows.map(row => interestScore(row) * 100) },
+          { name: "分类命中率", type: "bar", data: rows.map(row => Number(row.categoryHitRate || 0) * 100) },
+          { name: "分类Precision@K", type: "bar", data: rows.map(row => Number(row.categoryPrecisionAtK || 0) * 100) },
+          { name: "分类NDCG@K", type: "bar", data: rows.map(row => Number(row.categoryNdcgAtK || 0) * 100) },
+          { name: "覆盖率", type: "bar", data: rows.map(row => Number(row.coverage || 0) * 100) }
+        ]
+      });
+    }
+
+    function resizeCharts() {
+      Object.values(state.charts).forEach(chart => chart.resize());
+    }
+
+    function rebuildStatusText(result) {
+      const hasCounts = result
+        && result.userProfileCount != null
+        && result.productProfileCount != null
+        && result.recommendResultCount != null;
+      if (hasCounts) {
+        return `重建完成：用户画像 ${fmt(result.userProfileCount)}，商品画像 ${fmt(result.productProfileCount)}，推荐结果 ${fmt(result.recommendResultCount)}。`;
+      }
+      return "重建完成：已重新计算用户画像、商品画像和推荐结果，并刷新页面数据。";
+    }
+
+    async function loadGlobal() {
+      clearError();
+      const days = $("days").value;
+      try {
+        const [overview, activeUsers, hotRows, categories] = await Promise.all([
+          request(API.usersOverview(days)),
+          request(API.activeUsers(days, 200)),
+          request(API.hotRecommend(10)),
+          request(API.categories())
+        ]);
+        renderGlobalOverview(overview);
+        renderFavoriteCategoryFilter(categories);
+        renderActiveUsers(activeUsers);
+        renderRecommend("hotRecommend", hotRows);
+        if (!state.userId && state.activeUsers.length) state.userId = String(state.activeUsers[0].userId);
+        renderActiveUsers();
+      } catch (error) {
+        showError(error);
+      }
+    }
+
+    async function loadUser(userId, switchToUser = false) {
+      clearError();
+      state.userId = String(userId || state.userId || (state.activeUsers[0] && state.activeUsers[0].userId) || "1");
+      const days = $("days").value;
+      try {
+        const [profile, recommendRows] = await Promise.all([
+          request(API.userProfile(state.userId, days)),
+          request(API.userRecommend(state.userId, state.recommendType, 8))
+        ]);
+        renderUserProfile(profile, recommendRows);
+        if (switchToUser) switchView("single");
+      } catch (error) {
+        showError(error);
+      }
+    }
+
+    async function loadProduct(productId, switchToProduct = false) {
+      clearError();
+      state.productId = String(productId || state.productId || "26");
+      const days = $("days").value;
+      try {
+        const [product, similarRows] = await Promise.all([
+          request(API.productAnalysis(state.productId, days)),
+          request(API.similar(state.productId, 16))
+        ]);
+        renderProduct(product, similarRows);
+        renderProductSearchResults();
+        if (switchToProduct) switchView("product");
+      } catch (error) {
+        showError(error);
+      }
+    }
+
+    async function searchProducts(openFirst = false) {
+      clearError();
+      const keyword = $("productKeyword").value.trim();
+      try {
+        const rows = await request(API.productSearch(keyword, 60));
+        renderProductSearchResults(rows);
+        const exactMatch = rows.find(row => String(row.productId) === keyword);
+        if (openFirst && (exactMatch || rows.length === 1)) {
+          await loadProduct((exactMatch || rows[0]).productId, true);
+        } else if (openFirst && keyword && !rows.length) {
+          state.productId = keyword;
+          renderEmptyProduct();
+          switchView("product");
+        }
+      } catch (error) {
+        showError(error);
+      }
+    }
+
+    async function loadEvaluation() {
+      clearError();
+      try {
+        const rows = await request(API.recommendEvaluation());
+        renderEvaluation(rows);
+      } catch (error) {
+        renderEvaluation([]);
+        showError(error);
+      }
+    }
+
+    async function rebuildAnalytics() {
+      clearError();
+      const btn = $("rebuildBtn");
+      btn.disabled = true;
+      $("rebuildStatus").textContent = "正在重建用户画像、商品画像和推荐结果...";
+      try {
+        const result = await request(API.rebuild(), { method: "POST" });
+        await refreshAll(false);
+        $("rebuildStatus").textContent = rebuildStatusText(result);
+      } catch (error) {
+        $("rebuildStatus").textContent = "重建失败，请检查分析服务日志。";
+        showError(error);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function refreshAll(showRefreshStatus = false) {
+      const btn = $("refreshBtn");
+      if (showRefreshStatus) {
+        btn.disabled = true;
+        $("rebuildStatus").textContent = "正在刷新分析...";
+      }
+      try {
+        await loadGlobal();
+        await loadUser(state.userId || (state.activeUsers[0] && state.activeUsers[0].userId), false);
+        await searchProducts(false);
+        await loadProduct(state.productId, false);
+        await loadEvaluation();
+        if (showRefreshStatus) $("rebuildStatus").textContent = "刷新分析完成";
+      } catch (error) {
+        if (showRefreshStatus) $("rebuildStatus").textContent = "刷新分析失败，请检查服务状态。";
+        throw error;
+      } finally {
+        if (showRefreshStatus) btn.disabled = false;
+      }
+    }
+
+    document.querySelectorAll(".nav button").forEach(btn => btn.addEventListener("click", () => switchView(btn.dataset.view)));
+    $("refreshBtn").addEventListener("click", () => refreshAll(true));
+    $("rebuildBtn").addEventListener("click", rebuildAnalytics);
+    ["userKeyword", "rfmLevelFilter", "favoriteCategoryFilter", "minRfmScore"].forEach(id => {
+      const el = $(id);
+      el.addEventListener(el.tagName === "SELECT" ? "change" : "input", () => renderActiveUsers());
+    });
+    $("searchProductBtn").addEventListener("click", () => searchProducts(true));
+    $("productKeyword").addEventListener("keydown", event => {
+      if (event.key === "Enter") searchProducts(true);
+    });
+    $("days").addEventListener("change", () => refreshAll(false));
+    window.addEventListener("resize", resizeCharts);
+    setInterval(() => { $("clock").textContent = new Date().toLocaleString("zh-CN"); }, 1000);
+    renderRecommendTypeTabs();
+    bindPanelHelp();
+    refreshAll();
+  </script>
+</body>
+</html>

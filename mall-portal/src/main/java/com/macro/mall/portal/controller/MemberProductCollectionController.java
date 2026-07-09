@@ -2,11 +2,14 @@ package com.macro.mall.portal.controller;
 
 import com.macro.mall.common.api.CommonPage;
 import com.macro.mall.common.api.CommonResult;
+import com.macro.mall.common.constant.BehaviorEventType;
+import com.macro.mall.portal.component.BehaviorEventRecorder;
 import com.macro.mall.portal.domain.MemberProductCollection;
 import com.macro.mall.portal.service.MemberCollectionService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Controller;
@@ -24,13 +27,16 @@ import java.util.List;
 public class MemberProductCollectionController {
     @Autowired
     private MemberCollectionService memberCollectionService;
+    @Autowired
+    private BehaviorEventRecorder behaviorEventRecorder;
 
     @Operation(summary = "添加商品收藏")
     @RequestMapping(value = "/add", method = RequestMethod.POST)
     @ResponseBody
-    public CommonResult add(@RequestBody MemberProductCollection productCollection) {
+    public CommonResult add(@RequestBody MemberProductCollection productCollection, HttpServletRequest request) {
         int count = memberCollectionService.add(productCollection);
         if (count > 0) {
+            behaviorEventRecorder.record(BehaviorEventType.FAV, productCollection.getProductId(), null, null, "product_collection", request);
             return CommonResult.success(count);
         } else {
             return CommonResult.failed();

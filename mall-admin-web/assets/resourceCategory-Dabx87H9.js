@@ -1,0 +1,1 @@
+import{Y as r}from"./index-lN_RrXiT.js";function u(){return r({url:"/resourceCategory/listAll",method:"get"})}function a(e){return r({url:"/resourceCategory/create",method:"post",data:e})}function s(e,t){return r({url:"/resourceCategory/update/"+e,method:"post",data:t})}function c(e){return r({url:"/resourceCategory/delete/"+e,method:"post"})}export{c as a,s as b,a as c,u as r};

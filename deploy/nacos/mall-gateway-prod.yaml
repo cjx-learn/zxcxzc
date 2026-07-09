@@ -1,0 +1,13 @@
+spring:
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      database: 0
+      password:
+logstash:
+  host: 127.0.0.1
+  enableInnerLog: false
+logging:
+  file:
+    path: /var/log/mall-swarm

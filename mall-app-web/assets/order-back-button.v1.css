@@ -1,0 +1,30 @@
+.mall-order-back-btn {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 10px);
+  left: 10px;
+  z-index: 9900;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(15, 23, 42, .08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .96);
+  color: #111827;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, .14);
+  font: inherit;
+  line-height: 1;
+  padding: 0;
+}
+
+.mall-order-back-btn span {
+  display: block;
+  transform: translateY(-1px);
+  font-size: 30px;
+  line-height: 30px;
+}
+
+.mall-order-back-btn:active {
+  transform: scale(.96);
+}

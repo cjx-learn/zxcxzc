@@ -12,6 +12,10 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMqConfig {
 
+    public static final String BEHAVIOR_EXCHANGE = "mall.behavior.exchange";
+    public static final String BEHAVIOR_QUEUE = "mall.behavior.queue";
+    public static final String BEHAVIOR_ROUTING_KEY = "mall.behavior";
+
     /**
      * 订单消息实际消费队列所绑定的交换机
      */
@@ -74,6 +78,38 @@ public class RabbitMqConfig {
                 .bind(orderTtlQueue)
                 .to(orderTtlDirect)
                 .with(QueueEnum.QUEUE_TTL_ORDER_CANCEL.getRouteKey());
+    }
+
+    /**
+     * 用户行为采集交换机。
+     */
+    @Bean
+    DirectExchange behaviorDirect() {
+        return (DirectExchange) ExchangeBuilder
+                .directExchange(BEHAVIOR_EXCHANGE)
+                .durable(true)
+                .build();
+    }
+
+    /**
+     * 用户行为采集队列。
+     */
+    @Bean
+    public Queue behaviorQueue() {
+        return QueueBuilder
+                .durable(BEHAVIOR_QUEUE)
+                .build();
+    }
+
+    /**
+     * 将用户行为队列绑定到交换机。
+     */
+    @Bean
+    Binding behaviorBinding(DirectExchange behaviorDirect, Queue behaviorQueue) {
+        return BindingBuilder
+                .bind(behaviorQueue)
+                .to(behaviorDirect)
+                .with(BEHAVIOR_ROUTING_KEY);
     }
 
 }

@@ -1,0 +1,1 @@
+import{h as o}from"./http.94CetqdY.js";const t=t=>o({method:"GET",url:`/member/coupon/listByProduct/${t}`}),m=t=>o({method:"POST",url:`/member/coupon/add/${t}`}),e=t=>o({method:"GET",url:"/member/coupon/list",params:{useStatus:t}});export{t as a,m as b,e as g};

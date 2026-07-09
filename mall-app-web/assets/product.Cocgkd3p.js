@@ -1,0 +1,1 @@
+import{h as t}from"./http.94CetqdY.js";const r=()=>t({method:"GET",url:"/product/categoryTreeList"}),o=r=>t({method:"GET",url:"/product/search",params:r}),a=r=>t({method:"GET",url:`/product/detail/${r}`});export{a,r as g,o as s};
