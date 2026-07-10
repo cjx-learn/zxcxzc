@@ -11,8 +11,10 @@ from torch.utils.data import DataLoader, TensorDataset
 
 EVENT_WEIGHT = {
     "view": 1.0,
+    "search": 1.0,
     "fav": 3.0,
     "cart": 4.0,
+    "order": 4.5,
     "pay": 5.0,
 }
 

@@ -68,6 +68,10 @@ FROM (
           IFNULL(activity_stats.active_days, 0) AS active_days,
           activity_stats.last_active_time
         FROM (
+          SELECT id AS user_id
+          FROM ums_member
+          WHERE IFNULL(status, 1) = 1
+          UNION
           SELECT user_id
           FROM user_behavior_event
           WHERE user_id IS NOT NULL
@@ -154,6 +158,10 @@ FROM (
     CROSS JOIN (
       SELECT COUNT(*) AS total_users
       FROM (
+        SELECT id AS user_id
+        FROM ums_member
+        WHERE IFNULL(status, 1) = 1
+        UNION
         SELECT user_id
         FROM user_behavior_event
         WHERE user_id IS NOT NULL

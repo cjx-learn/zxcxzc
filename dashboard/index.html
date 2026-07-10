@@ -150,7 +150,7 @@
 
     .user-filter-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
       gap: 8px;
     }
 
@@ -255,7 +255,7 @@
       gap: 16px;
     }
 
-    .cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
     .cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
@@ -275,6 +275,30 @@
       justify-content: space-between;
       gap: 8px;
     }
+
+    .kpi::after {
+      content: none !important;
+      display: none !important;
+    }
+
+    .kpi-badge {
+      position: absolute;
+      right: 18px;
+      top: 18px;
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 950;
+    }
+
+    .kpi-badge.total { background: #ecfeff; color: #155e75; }
+    .kpi-badge.high { background: #ecfdf3; color: #166534; }
+    .kpi-badge.middle { background: #fff7ed; color: #9a3412; }
+    .kpi-badge.low { background: #fef2f2; color: #b42318; }
 
     .kpi-name {
       color: var(--muted);
@@ -722,7 +746,7 @@
 
     .advanced-intel-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
       gap: 14px;
     }
 
@@ -922,20 +946,20 @@
     }
 
     @media (max-width: 1100px) {
-      .app { grid-template-columns: 1fr; }
+      .app { grid-template-columns: 1fr !important; }
       .sidebar { position: static; max-height: none; }
       .user-list { flex-basis: auto; max-height: 440px; }
-      .cols-4, .cols-3, .cols-2 { grid-template-columns: 1fr; }
+      .cols-4, .cols-3, .cols-2 { grid-template-columns: 1fr !important; }
     }
 
     @media (max-width: 600px) {
       header { height: auto; padding: 16px; align-items: flex-start; flex-direction: column; }
       .app { padding: 12px; }
       .product-name { max-width: 180px; }
-      .recommend-card { grid-template-columns: 1fr; }
+      .recommend-card { grid-template-columns: 1fr !important; }
       .recommend-side { justify-items: start; grid-template-columns: auto auto; align-items: center; }
     }
-  
+
 
     /* dashboard-polish-v3: commerce intelligence workspace */
     :root {
@@ -1558,9 +1582,9 @@
       body::before { height: 180px; }
       header { align-items: flex-start; flex-direction: column; }
       #clock { text-align: left; }
-      .app { grid-template-columns: 1fr; padding: 16px; }
+      .app { grid-template-columns: 1fr !important; padding: 16px; }
       .sidebar { position: relative; top: 0; max-height: none; }
-      .cols-2, .cols-3, .cols-4 { grid-template-columns: 1fr; }
+      .cols-2, .cols-3, .cols-4 { grid-template-columns: 1fr !important; }
       .chart { height: 300px; }
     }
 
@@ -1855,7 +1879,7 @@
     }
 
     .nav {
-      grid-template-columns: 1fr;
+      grid-template-columns: 1fr !important;
       gap: 8px;
     }
 
@@ -2125,7 +2149,7 @@
       }
 
       .app {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
         padding: 16px;
       }
 
@@ -2346,18 +2370,18 @@
 
     @media (max-width: 760px) {
       #evaluationKpis {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
       }
 
       .evaluation-definition {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
         gap: 4px;
       }
     }
 
     @media (max-width: 520px) {
       #evaluationKpis {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
       }
     }
 
@@ -2455,7 +2479,7 @@
     }
 
     .nav {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
       gap: 8px;
     }
 
@@ -2557,7 +2581,7 @@
     }
 
     .user-filter-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
       gap: 8px;
     }
 
@@ -2646,6 +2670,14 @@
       background: #fbfdff;
     }
 
+    .panel-title-left {
+      justify-content: flex-start;
+    }
+
+    .panel-title-left > span {
+      min-width: 0;
+    }
+
     .panel-body {
       padding: 16px;
     }
@@ -2667,7 +2699,7 @@
       }
 
       .app {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
         padding: 10px 14px 24px;
       }
 
@@ -2700,7 +2732,7 @@
       .nav,
       .user-filter-grid,
       .sidebar-actions {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
       }
 
       .user-list {
@@ -2809,7 +2841,7 @@
       }
 
       .sidebar-actions {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
       }
 
       .button {
@@ -2892,11 +2924,11 @@
       }
 
       .sidebar-actions {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
       }
 
       .user-filter-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
         gap: 7px;
       }
 
@@ -2910,7 +2942,34 @@
       }
     }
 
-  </style>
+
+
+    /* recommend-evaluation-kpi-layout: four cards after removing evaluated-user count */
+    #evaluationKpis {
+      width: 100%;
+      max-width: none;
+      grid-column: 1 / -1;
+      grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    }
+
+    #evaluationKpis .metric-card,
+    #evaluationKpis .kpi {
+      min-width: 0;
+      width: 100%;
+    }
+
+    @media (max-width: 1180px) {
+      #evaluationKpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      }
+    }
+
+    @media (max-width: 640px) {
+      #evaluationKpis {
+        grid-template-columns: 1fr !important;
+      }
+    }
+</style>
 </head>
 <body>
   <header>
@@ -2997,7 +3056,7 @@
         <div class="grid cols-4" id="globalKpis"></div>
         <div class="grid cols-2">
           <div class="panel">
-            <div class="panel-title panel-title-help"><span>用户等级分布 <span class="muted">来自 user_profile.user_level</span></span><button class="help-btn panel-help-btn" type="button" aria-label="查看用户等级分布说明" title="查看说明" data-panel-help>?</button></div>
+            <div class="panel-title panel-title-help"><span>用户等级分布</span><button class="help-btn panel-help-btn" type="button" aria-label="查看用户等级分布说明" title="查看说明" data-panel-help>?</button></div>
             <div class="panel-help">划分口径：统一使用 RFM 综合分的全体用户百分位动态划分，不再使用固定次数阈值。
 R（最近活跃）：根据最近一次行为距离当前的时间计分。
 F（行为频率）：将浏览、搜索、收藏、加购、下单、支付和活跃天数按权重计入。
@@ -3010,7 +3069,7 @@ RFM 综合分 = R * 40% + F * 40% + M * 20%。
             <div class="panel-body"><div class="chart" id="levelChart"></div></div>
           </div>
           <div class="panel">
-            <div class="panel-title">偏好分类分布 <span class="muted">全体用户 favorite_category</span></div>
+            <div class="panel-title panel-title-left"><span>偏好分类分布</span></div>
             <div class="panel-body"><div class="chart" id="categoryChart"></div></div>
           </div>
         </div>
@@ -3294,7 +3353,7 @@ RFM 综合分 = R * 40% + F * 40% + M * 20%。
     function renderGlobalOverview(data) {
       const summary = data.summary || {};
       $("globalKpis").innerHTML = [
-        kpiHtml("画像用户数", fmt(summary.profileUserCount), "已生成 user_profile 的用户"),
+        kpiHtml("画像用户数", fmt(summary.profileUserCount), "已生成用户画像"),
         kpiHtml("高价值用户", fmt(summary.highValueUserCount), "综合价值分前 20%"),
         kpiHtml("中价值用户", fmt(summary.middleValueUserCount), "综合价值分 20% - 80%"),
         kpiHtml("低价值用户", fmt(summary.lowValueUserCount), "综合价值分后 20%")
@@ -3807,7 +3866,6 @@ RFM 综合分 = R * 40% + F * 40% + M * 20%。
       if (!rows.length) {
         $("evaluationKpis").innerHTML = [
           kpiHtml("评估状态", "-", "暂无算法评估数据"),
-          kpiHtml("评估用户数", "0", "请先运行离线评估脚本"),
           kpiHtml("兴趣匹配分", "-", "分类兴趣综合指标"),
           kpiHtml("分类NDCG@K最佳", "-", "categoryNdcgAtK")
         ].join("");
@@ -3823,7 +3881,6 @@ RFM 综合分 = R * 40% + F * 40% + M * 20%。
       const k = rows[0].k || 10;
 
       $("evaluationKpis").innerHTML = [
-        kpiHtml("评估用户数", fmt(totalUsers), `Top ${fmt(k)} 推荐`),
         kpiHtml("兴趣匹配分", escapeHtml(bestInterest.algorithmLabel || bestInterest.algorithm), pct(interestScore(bestInterest))),
         kpiHtml("分类命中最佳", escapeHtml(bestCategory.algorithmLabel || bestCategory.algorithm), pct(bestCategory.categoryHitRate)),
         kpiHtml("分类NDCG@K最佳", escapeHtml(bestCategoryNdcg.algorithmLabel || bestCategoryNdcg.algorithm), pct(bestCategoryNdcg.categoryNdcgAtK)),
