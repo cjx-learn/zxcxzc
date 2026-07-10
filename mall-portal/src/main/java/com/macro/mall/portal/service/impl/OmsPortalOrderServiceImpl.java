@@ -250,7 +250,100 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
     }
 
     @Override
+    public Map<String, Object> reorder(Long orderId) {
+        UmsMember currentMember = memberService.getCurrentMember();
+        OmsOrder sourceOrder = orderMapper.selectByPrimaryKey(orderId);
+        if (sourceOrder == null || sourceOrder.getDeleteStatus() == null || sourceOrder.getDeleteStatus() != 0) {
+            Asserts.fail("订单不存在！");
+        }
+        if (!currentMember.getId().equals(sourceOrder.getMemberId())) {
+            Asserts.fail("不能操作他人订单！");
+        }
+        OmsOrderItemExample orderItemExample = new OmsOrderItemExample();
+        orderItemExample.createCriteria().andOrderIdEqualTo(orderId);
+        List<OmsOrderItem> sourceItemList = orderItemMapper.selectByExample(orderItemExample);
+        if (CollectionUtils.isEmpty(sourceItemList)) {
+            Asserts.fail("订单没有商品！");
+        }
+        List<OmsOrderItem> orderItemList = new ArrayList<>();
+        for (OmsOrderItem sourceItem : sourceItemList) {
+            OmsOrderItem orderItem = new OmsOrderItem();
+            orderItem.setProductId(sourceItem.getProductId());
+            orderItem.setProductName(sourceItem.getProductName());
+            orderItem.setProductPic(sourceItem.getProductPic());
+            orderItem.setProductAttr(sourceItem.getProductAttr());
+            orderItem.setProductBrand(sourceItem.getProductBrand());
+            orderItem.setProductSn(sourceItem.getProductSn());
+            orderItem.setProductPrice(sourceItem.getProductPrice());
+            orderItem.setProductQuantity(sourceItem.getProductQuantity());
+            orderItem.setProductSkuId(sourceItem.getProductSkuId());
+            orderItem.setProductSkuCode(sourceItem.getProductSkuCode());
+            orderItem.setProductCategoryId(sourceItem.getProductCategoryId());
+            orderItem.setPromotionAmount(new BigDecimal(0));
+            orderItem.setCouponAmount(new BigDecimal(0));
+            orderItem.setIntegrationAmount(new BigDecimal(0));
+            orderItem.setGiftIntegration(sourceItem.getGiftIntegration() == null ? 0 : sourceItem.getGiftIntegration());
+            orderItem.setGiftGrowth(sourceItem.getGiftGrowth() == null ? 0 : sourceItem.getGiftGrowth());
+            orderItemList.add(orderItem);
+        }
+        if (!hasStockForOrderItems(orderItemList)) {
+            Asserts.fail("库存不足，无法下单！");
+        }
+        handleRealAmount(orderItemList);
+        lockStockForOrderItems(orderItemList);
+
+        OmsOrder order = new OmsOrder();
+        order.setDiscountAmount(new BigDecimal(0));
+        order.setTotalAmount(calcTotalAmount(orderItemList));
+        order.setFreightAmount(new BigDecimal(0));
+        order.setPromotionAmount(new BigDecimal(0));
+        order.setCouponAmount(new BigDecimal(0));
+        order.setIntegration(0);
+        order.setUseIntegration(0);
+        order.setIntegrationAmount(new BigDecimal(0));
+        order.setPayAmount(calcPayAmount(order));
+        order.setMemberId(currentMember.getId());
+        order.setCreateTime(new Date());
+        order.setMemberUsername(currentMember.getUsername());
+        order.setPayType(0);
+        order.setSourceType(1);
+        order.setStatus(0);
+        order.setOrderType(2);
+        order.setReceiverName(sourceOrder.getReceiverName());
+        order.setReceiverPhone(sourceOrder.getReceiverPhone());
+        order.setReceiverPostCode(sourceOrder.getReceiverPostCode());
+        order.setReceiverProvince(sourceOrder.getReceiverProvince());
+        order.setReceiverCity(sourceOrder.getReceiverCity());
+        order.setReceiverRegion(sourceOrder.getReceiverRegion());
+        order.setReceiverDetailAddress(sourceOrder.getReceiverDetailAddress());
+        order.setConfirmStatus(0);
+        order.setDeleteStatus(0);
+        order.setIntegration(calcGifIntegration(orderItemList));
+        order.setGrowth(calcGiftGrowth(orderItemList));
+        order.setOrderSn(generateOrderSn(order));
+        List<OmsOrderSetting> orderSettings = orderSettingMapper.selectByExample(new OmsOrderSettingExample());
+        if(CollUtil.isNotEmpty(orderSettings)){
+            order.setAutoConfirmDay(orderSettings.get(0).getConfirmOvertime());
+        }
+        orderMapper.insert(order);
+        for (OmsOrderItem orderItem : orderItemList) {
+            orderItem.setOrderId(order.getId());
+            orderItem.setOrderSn(order.getOrderSn());
+        }
+        orderItemDao.insertList(orderItemList);
+        sendDelayMessageCancelOrder(order.getId());
+        Map<String, Object> result = new HashMap<>();
+        result.put("order", order);
+        result.put("orderItemList", orderItemList);
+        return result;
+    }
+
+    @Override
     public Integer paySuccess(Long orderId, Integer payType) {
+        OmsOrder currentOrder = orderMapper.selectByPrimaryKey(orderId);
+        if (currentOrder == null || currentOrder.getStatus() == null || currentOrder.getStatus() != 0) {
+            return 0;
+        }
         //修改订单支付状态
         OmsOrder order = new OmsOrder();
         order.setId(orderId);
@@ -261,6 +354,7 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
         //恢复所有下单商品的锁定库存，扣减真实库存
         OmsOrderDetail orderDetail = portalOrderDao.getDetail(orderId);
         int count = portalOrderDao.updateSkuStock(orderDetail.getOrderItemList());
+        portalOrderDao.updateProductSaleAndStock(orderDetail.getOrderItemList());
         return count;
     }
 
@@ -741,6 +835,30 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
                     ||cartPromotionItem.getRealStock() <= 0 //判断真实库存是否小于0
                     || cartPromotionItem.getRealStock() < cartPromotionItem.getQuantity()) //判断真实库存是否小于下单的数量
             {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void lockStockForOrderItems(List<OmsOrderItem> orderItemList) {
+        for (OmsOrderItem orderItem : orderItemList) {
+            PmsSkuStock skuStock = skuStockMapper.selectByPrimaryKey(orderItem.getProductSkuId());
+            Integer lockStock = skuStock.getLockStock() == null ? 0 : skuStock.getLockStock();
+            skuStock.setLockStock(lockStock + orderItem.getProductQuantity());
+            skuStockMapper.updateByPrimaryKeySelective(skuStock);
+        }
+    }
+
+    private boolean hasStockForOrderItems(List<OmsOrderItem> orderItemList) {
+        for (OmsOrderItem orderItem : orderItemList) {
+            PmsSkuStock skuStock = skuStockMapper.selectByPrimaryKey(orderItem.getProductSkuId());
+            if (skuStock == null || orderItem.getProductQuantity() == null || orderItem.getProductQuantity() <= 0) {
+                return false;
+            }
+            Integer stock = skuStock.getStock() == null ? 0 : skuStock.getStock();
+            Integer lockStock = skuStock.getLockStock() == null ? 0 : skuStock.getLockStock();
+            if (stock - lockStock < orderItem.getProductQuantity()) {
                 return false;
             }
         }

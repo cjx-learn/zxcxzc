@@ -21,6 +21,13 @@ import java.util.Map;
 
 @Repository
 public class BehaviorEventRepository {
+    private static final String REAL_BEHAVIOR_SOURCE_CONDITION = """
+                  AND (
+                    source_page IS NULL
+                    OR source_page NOT IN ('seed-category-products', '/demo/behavior-seed')
+                  )
+                """;
+
     @Autowired
     private JdbcTemplate jdbcTemplate;
     @Autowired(required = false)
@@ -35,6 +42,78 @@ public class BehaviorEventRepository {
                         """,
                 event.getUserId(), event.getSessionId(), event.getProductId(), event.getCategoryId(), event.getEventType(),
                 event.getKeyword(), event.getSourcePage(), event.getDeviceType(), event.getIp(), event.getUserAgent(), Timestamp.valueOf(eventTime));
+    }
+
+    public void refreshRealtimeProfiles(UserBehaviorEventDTO event) {
+        if (event == null || event.getProductId() == null) {
+            return;
+        }
+        refreshProductProfile(event.getProductId());
+        if (event.getUserId() != null) {
+            refreshUserProductScore(event.getUserId(), event.getProductId());
+        }
+    }
+
+    private void refreshProductProfile(Long productId) {
+        jdbcTemplate.update("""
+                REPLACE INTO product_profile (
+                  product_id, category_id, view_count, search_count, fav_count, cart_count,
+                  order_count, pay_count, hot_score, cart_rate, order_rate, pay_rate, update_time
+                )
+                SELECT
+                  product_id,
+                  MAX(category_id) AS category_id,
+                  SUM(event_type='view') AS view_count,
+                  SUM(event_type='search') AS search_count,
+                  SUM(event_type='fav') AS fav_count,
+                  SUM(event_type='cart') AS cart_count,
+                  SUM(event_type='order') AS order_count,
+                  SUM(event_type='pay') AS pay_count,
+                  SUM(CASE event_type
+                    WHEN 'view' THEN 1
+                    WHEN 'search' THEN 1
+                    WHEN 'fav' THEN 2
+                    WHEN 'cart' THEN 3
+                    WHEN 'order' THEN 4
+                    WHEN 'pay' THEN 5
+                    ELSE 0 END) AS hot_score,
+                  ROUND(SUM(event_type='cart') / NULLIF(SUM(event_type='view'), 0), 4) AS cart_rate,
+                  ROUND(SUM(event_type='order') / NULLIF(SUM(event_type='view'), 0), 4) AS order_rate,
+                  ROUND(SUM(event_type='pay') / NULLIF(SUM(event_type='view'), 0), 4) AS pay_rate,
+                  NOW()
+                FROM user_behavior_event
+                WHERE product_id = ?
+                GROUP BY product_id
+                """, productId);
+    }
+
+    private void refreshUserProductScore(Long userId, Long productId) {
+        jdbcTemplate.update("""
+                REPLACE INTO user_product_score (
+                  user_id, product_id, score, view_count, search_count, fav_count, cart_count, order_count, pay_count, update_time
+                )
+                SELECT
+                  user_id,
+                  product_id,
+                  SUM(CASE event_type
+                    WHEN 'view' THEN 1
+                    WHEN 'search' THEN 1
+                    WHEN 'fav' THEN 2
+                    WHEN 'cart' THEN 3
+                    WHEN 'order' THEN 4
+                    WHEN 'pay' THEN 5
+                    ELSE 0 END) AS score,
+                  SUM(event_type='view') AS view_count,
+                  SUM(event_type='search') AS search_count,
+                  SUM(event_type='fav') AS fav_count,
+                  SUM(event_type='cart') AS cart_count,
+                  SUM(event_type='order') AS order_count,
+                  SUM(event_type='pay') AS pay_count,
+                  NOW()
+                FROM user_behavior_event
+                WHERE user_id = ? AND product_id = ?
+                GROUP BY user_id, product_id
+                """, userId, productId);
     }
 
     public Map<String, Object> overview(int days, String eventType, Long categoryId) {
@@ -344,8 +423,8 @@ public class BehaviorEventRepository {
                 countMongoDocuments("memberProductCollection", userId, days),
                 countMongoDistinctProducts("memberProductCollection", userId, days)));
         result.add(summaryRow("cart",
-                countCurrentCartQuantity(userId),
-                countCurrentCartDistinctProducts(userId)));
+                countBehaviorEvents(userId, days, "cart", " AND product_id IS NOT NULL\n AND source_page = 'order_reorder_pay'"),
+                countDistinctBehaviorProducts(userId, days, "cart", " AND product_id IS NOT NULL\n AND source_page = 'order_reorder_pay'")));
         result.add(summaryRow("order",
                 countOrders(userId, days, "0,1,2,3"),
                 countOrders(userId, days, "0,1,2,3")));
@@ -467,7 +546,7 @@ public class BehaviorEventRepository {
         result.addAll(behaviorEventCategorySummary(userId, days, "view", " AND e.product_id IS NOT NULL"));
         result.addAll(searchEventCategorySummary(userId, days));
         result.addAll(mongoCollectionCategorySummary("fav", "memberProductCollection", userId, days));
-        result.addAll(cartCategorySummary(userId));
+        result.addAll(cartBehaviorEventCategorySummary(userId, days));
         result.addAll(orderCategorySummary("order", userId, days, "0,1,2,3"));
         result.addAll(orderCategorySummary("pay", userId, days, "1,2,3"));
         return result;
@@ -493,6 +572,28 @@ public class BehaviorEventRepository {
                 GROUP BY COALESCE(c.id, pc.id), COALESCE(c.name, pc.name, '\u672a\u8bc6\u522b')
                 ORDER BY eventCount DESC
                 """, eventType, userId, days, eventType);
+    }
+
+    private List<Map<String, Object>> cartBehaviorEventCategorySummary(Long userId, int days) {
+        return jdbcTemplate.queryForList("""
+                SELECT
+                  'cart' AS eventType,
+                  COALESCE(c.id, pc.id) AS categoryId,
+                  COALESCE(c.name, pc.name, '\u672a\u8bc6\u522b') AS categoryName,
+                  COUNT(*) AS eventCount,
+                  COUNT(DISTINCT e.product_id) AS productCount
+                FROM user_behavior_event e
+                LEFT JOIN pms_product p ON e.product_id = p.id
+                LEFT JOIN pms_product_category c ON e.category_id = c.id
+                LEFT JOIN pms_product_category pc ON p.product_category_id = pc.id
+                WHERE e.user_id = ?
+                  AND e.event_time >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                  AND e.event_type = 'cart'
+                  AND e.product_id IS NOT NULL
+                  AND e.source_page = 'order_reorder_pay'
+                GROUP BY COALESCE(c.id, pc.id), COALESCE(c.name, pc.name, '\u672a\u8bc6\u522b')
+                ORDER BY eventCount DESC
+                """, userId, days);
     }
 
     private List<Map<String, Object>> searchEventCategorySummary(Long userId, int days) {

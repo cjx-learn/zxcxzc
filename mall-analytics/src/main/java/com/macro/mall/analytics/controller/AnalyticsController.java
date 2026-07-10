@@ -3,10 +3,13 @@ package com.macro.mall.analytics.controller;
 import com.macro.mall.analytics.repository.BehaviorEventRepository;
 import com.macro.mall.analytics.service.AnalysisJobService;
 import com.macro.mall.common.api.CommonResult;
+import com.macro.mall.common.domain.UserBehaviorEventDTO;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -84,6 +87,22 @@ public class AnalyticsController {
         return CommonResult.success(behaviorEventRepository.categories());
     }
 
+    @PostMapping("/event")
+    public CommonResult<Integer> event(@RequestBody UserBehaviorEventDTO event, HttpServletRequest request) {
+        if (event == null || event.getProductId() == null || event.getEventType() == null) {
+            return CommonResult.failed("事件参数不完整");
+        }
+        if (event.getIp() == null) {
+            event.setIp(clientIp(request));
+        }
+        if (event.getUserAgent() == null) {
+            event.setUserAgent(request.getHeader("User-Agent"));
+        }
+        behaviorEventRepository.insert(event);
+        behaviorEventRepository.refreshRealtimeProfiles(event);
+        return CommonResult.success(1);
+    }
+
     @GetMapping("/rebuild/status")
     public CommonResult<Map<String, Object>> rebuildStatus() {
         return CommonResult.success(analysisJobService.rebuildStatus());
@@ -92,5 +111,13 @@ public class AnalyticsController {
     @PostMapping("/rebuild")
     public CommonResult<Map<String, Object>> rebuild() throws IOException {
         return CommonResult.success(analysisJobService.rebuildProfilesAndRecommendations());
+    }
+
+    private String clientIp(HttpServletRequest request) {
+        String forwardedFor = request.getHeader("X-Forwarded-For");
+        if (forwardedFor != null && !forwardedFor.isBlank()) {
+            return forwardedFor.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

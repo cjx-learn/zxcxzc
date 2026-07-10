@@ -15,6 +15,8 @@
             o.integration,
             o.member_id,
             ot.id ot_id,
+            ot.product_id ot_product_id,
+            ot.product_category_id ot_product_category_id,
             ot.product_name ot_product_name,
             ot.product_sku_id ot_product_sku_id,
             ot.product_sku_code ot_product_sku_code,
@@ -35,6 +37,8 @@
             o.member_id,
             o.use_integration,
             ot.id               ot_id,
+            ot.product_id       ot_product_id,
+            ot.product_category_id ot_product_category_id,
             ot.product_name     ot_product_name,
             ot.product_sku_id   ot_product_sku_id,
             ot.product_sku_code ot_product_sku_code,
@@ -65,6 +69,26 @@
         <foreach collection="itemList" item="item" separator="," open="(" close=")">
             #{item.productSkuId}
         </foreach>
+    </update>
+    <update id="updateProductSaleAndStock">
+        UPDATE pms_product p
+        INNER JOIN (
+            SELECT product_id, SUM(product_quantity) AS quantity
+            FROM (
+            <foreach collection="itemList" item="item" separator=" UNION ALL ">
+                SELECT #{item.productId} AS product_id, #{item.productQuantity} AS product_quantity
+            </foreach>
+            ) order_items
+            WHERE product_id IS NOT NULL
+            GROUP BY product_id
+        ) oi ON p.id = oi.product_id
+        SET
+            p.sale = IFNULL(p.sale, 0) + oi.quantity,
+            p.stock = CASE
+                WHEN EXISTS (SELECT 1 FROM pms_sku_stock s WHERE s.product_id = p.id)
+                THEN (SELECT IFNULL(SUM(s.stock), 0) FROM pms_sku_stock s WHERE s.product_id = p.id)
+                ELSE GREATEST(IFNULL(p.stock, 0) - oi.quantity, 0)
+            END
     </update>
     <update id="updateOrderStatus">
         update oms_order

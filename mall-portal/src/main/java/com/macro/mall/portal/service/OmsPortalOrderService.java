@@ -26,6 +26,12 @@ public interface OmsPortalOrderService {
     Map<String, Object> generateOrder(OrderParam orderParam);
 
     /**
+     * Reorder from an existing order and create a new pending-payment order.
+     */
+    @Transactional
+    Map<String, Object> reorder(Long orderId);
+
+    /**
      * 支付成功后的回调
      */
     @Transactional
