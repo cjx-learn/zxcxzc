@@ -37,6 +37,78 @@ public class BehaviorEventRepository {
                 event.getKeyword(), event.getSourcePage(), event.getDeviceType(), event.getIp(), event.getUserAgent(), Timestamp.valueOf(eventTime));
     }
 
+    public void refreshRealtimeProfiles(UserBehaviorEventDTO event) {
+        if (event == null || event.getProductId() == null) {
+            return;
+        }
+        refreshProductProfile(event.getProductId());
+        if (event.getUserId() != null) {
+            refreshUserProductScore(event.getUserId(), event.getProductId());
+        }
+    }
+
+    private void refreshProductProfile(Long productId) {
+        jdbcTemplate.update("""
+                REPLACE INTO product_profile (
+                  product_id, category_id, view_count, search_count, fav_count, cart_count,
+                  order_count, pay_count, hot_score, cart_rate, order_rate, pay_rate, update_time
+                )
+                SELECT
+                  product_id,
+                  MAX(category_id) AS category_id,
+                  SUM(event_type='view') AS view_count,
+                  SUM(event_type='search') AS search_count,
+                  SUM(event_type='fav') AS fav_count,
+                  SUM(event_type='cart') AS cart_count,
+                  SUM(event_type='order') AS order_count,
+                  SUM(event_type='pay') AS pay_count,
+                  SUM(CASE event_type
+                    WHEN 'view' THEN 1
+                    WHEN 'search' THEN 1
+                    WHEN 'fav' THEN 2
+                    WHEN 'cart' THEN 3
+                    WHEN 'order' THEN 4
+                    WHEN 'pay' THEN 5
+                    ELSE 0 END) AS hot_score,
+                  ROUND(SUM(event_type='cart') / NULLIF(SUM(event_type='view'), 0), 4) AS cart_rate,
+                  ROUND(SUM(event_type='order') / NULLIF(SUM(event_type='view'), 0), 4) AS order_rate,
+                  ROUND(SUM(event_type='pay') / NULLIF(SUM(event_type='view'), 0), 4) AS pay_rate,
+                  NOW()
+                FROM user_behavior_event
+                WHERE product_id = ?
+                GROUP BY product_id
+                """, productId);
+    }
+
+    private void refreshUserProductScore(Long userId, Long productId) {
+        jdbcTemplate.update("""
+                REPLACE INTO user_product_score (
+                  user_id, product_id, score, view_count, search_count, fav_count, cart_count, order_count, pay_count, update_time
+                )
+                SELECT
+                  user_id,
+                  product_id,
+                  SUM(CASE event_type
+                    WHEN 'view' THEN 1
+                    WHEN 'search' THEN 1
+                    WHEN 'fav' THEN 2
+                    WHEN 'cart' THEN 3
+                    WHEN 'order' THEN 4
+                    WHEN 'pay' THEN 5
+                    ELSE 0 END) AS score,
+                  SUM(event_type='view') AS view_count,
+                  SUM(event_type='search') AS search_count,
+                  SUM(event_type='fav') AS fav_count,
+                  SUM(event_type='cart') AS cart_count,
+                  SUM(event_type='order') AS order_count,
+                  SUM(event_type='pay') AS pay_count,
+                  NOW()
+                FROM user_behavior_event
+                WHERE user_id = ? AND product_id = ?
+                GROUP BY user_id, product_id
+                """, userId, productId);
+    }
+
     public Map<String, Object> overview(int days, String eventType, Long categoryId) {
         StringBuilder sql = new StringBuilder("""
                 SELECT

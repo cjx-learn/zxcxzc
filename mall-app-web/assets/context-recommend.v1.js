@@ -27,6 +27,7 @@ let lastSceneKey = "";
 let pendingTimer = null;
 let isRendering = false;
 const cache = new Map();
+const exposureMemory = new Set();
 
 function currentHashPath() {
   return decodeURIComponent((location.hash || "").replace(/^#\/?/, "").split("?")[0]);
@@ -142,6 +143,64 @@ function escapeHtml(value) {
   })[char]);
 }
 
+function getRecommendSessionId() {
+  try {
+    let sessionId = localStorage.getItem("mall_h5_session_id");
+    if (!sessionId) {
+      sessionId = `h5-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      localStorage.setItem("mall_h5_session_id", sessionId);
+    }
+    return sessionId;
+  } catch (error) {
+    return "h5-session";
+  }
+}
+
+function productCategoryId(item) {
+  return item.categoryId || item.productCategoryId;
+}
+
+function recommendSourcePage(scene) {
+  if (scene.path === "pages/product/search") return "h5-recommend-search";
+  if (scene.path === "pages/cart/cart") return "h5-recommend-cart";
+  if (scene.path === "pages/order/order") return "h5-recommend-order";
+  return "h5-recommend";
+}
+
+function markRecommendExposure(sourcePage, id) {
+  const key = `mallRecommendView:${sourcePage}:${id}`;
+  try {
+    if (sessionStorage.getItem(key)) return false;
+    sessionStorage.setItem(key, "1");
+  } catch (error) {
+    if (exposureMemory.has(key)) return false;
+    exposureMemory.add(key);
+  }
+  return true;
+}
+
+async function trackRecommendExposure(item, scene) {
+  const id = Number(productId(item));
+  if (!Number.isFinite(id) || id <= 0) return;
+  const sourcePage = recommendSourcePage(scene);
+  if (!markRecommendExposure(sourcePage, id)) return;
+  const categoryId = Number(productCategoryId(item));
+  const userId = Number(await fetchCurrentUserId());
+  fetch("/mall-analytics/analytics/event", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "source-client": "miniapp" },
+    body: JSON.stringify({
+      userId: Number.isFinite(userId) && userId > 0 ? userId : 1,
+      productId: id,
+      categoryId: Number.isFinite(categoryId) && categoryId > 0 ? categoryId : null,
+      eventType: "view",
+      sessionId: getRecommendSessionId(),
+      sourcePage,
+      deviceType: "h5"
+    })
+  }).catch(error => console.warn("recommend exposure track failed", error));
+}
+
 function mergeUniqueProducts(primary, fallback) {
   const result = [];
   const seen = new Set();
@@ -193,15 +252,13 @@ function appRouter() {
   return null;
 }
 
-function openProduct(id) {
+function openProduct(id, scenePath) {
   if (!id) return;
-  const url = `/pages/product/product?id=${encodeURIComponent(id)}&_t=${Date.now()}&_from=cartRecommend`;
+  const source = scenePath === "pages/search/search" || scenePath === "pages/product/search" ? "searchRecommend" : scenePath === "pages/cart/cart" ? "cartRecommend" : scenePath === "pages/order/order" ? "orderRecommend" : "contextRecommend";
+  const url = `/pages/product/product?id=${encodeURIComponent(id)}&_t=${Date.now()}&_from=${source}`;
   const router = appRouter();
   if (router) {
     router.push(url);
-    [0, 80, 250, 600].forEach(delay => {
-      setTimeout(() => window.dispatchEvent(new CustomEvent("mall-product-id-change", { detail: { id: Number(id) || id } })), delay);
-    });
     return;
   }
   console.warn("recommend router unavailable");
@@ -232,7 +289,7 @@ function createSection(scene, rows) {
   section.querySelectorAll(".mall-context-card").forEach(card => {
     card.addEventListener("click", event => {
       event.preventDefault();
-      openProduct(card.dataset.productId);
+      openProduct(card.dataset.productId, scene.path);
     });
   });
   return section;

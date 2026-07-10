@@ -11,6 +11,7 @@ import com.macro.mall.portal.domain.PmsProductCategoryNode;
 import com.macro.mall.portal.service.PmsPortalProductService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -40,6 +41,8 @@ public class PmsPortalProductServiceImpl implements PmsPortalProductService {
     private PmsProductFullReductionMapper productFullReductionMapper;
     @Autowired
     private PortalProductDao portalProductDao;
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Override
     public List<PmsProduct> search(String keyword, Long brandId, Long productCategoryId, Integer pageNum, Integer pageSize, Integer sort) {
@@ -181,6 +184,13 @@ public class PmsPortalProductServiceImpl implements PmsPortalProductService {
         skuExample.createCriteria().andProductIdEqualTo(product.getId());
         List<PmsSkuStock> skuStockList = skuStockMapper.selectByExample(skuExample);
         result.setSkuStockList(skuStockList);
+        if (CollUtil.isNotEmpty(skuStockList)) {
+            product.setStock(skuStockList.stream()
+                    .map(PmsSkuStock::getStock)
+                    .filter(stock -> stock != null)
+                    .reduce(0, Integer::sum));
+        }
+        result.setViewCount(countProductViews(product.getId()) + 1);
         //商品阶梯价格设置
         if(product.getPromotionType()==3){
             PmsProductLadderExample ladderExample = new PmsProductLadderExample();
@@ -198,6 +208,14 @@ public class PmsPortalProductServiceImpl implements PmsPortalProductService {
         //商品可用优惠券
         result.setCouponList(portalProductDao.getAvailableCouponList(product.getId(),product.getProductCategoryId()));
         return result;
+    }
+
+    private long countProductViews(Long productId) {
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM user_behavior_event WHERE product_id = ? AND event_type = 'view'",
+                Long.class,
+                productId);
+        return count == null ? 0L : count;
     }
 
 

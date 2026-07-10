@@ -251,6 +251,10 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
 
     @Override
     public Integer paySuccess(Long orderId, Integer payType) {
+        OmsOrder currentOrder = orderMapper.selectByPrimaryKey(orderId);
+        if (currentOrder == null || currentOrder.getStatus() == null || currentOrder.getStatus() != 0) {
+            return 0;
+        }
         //修改订单支付状态
         OmsOrder order = new OmsOrder();
         order.setId(orderId);
@@ -261,6 +265,7 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
         //恢复所有下单商品的锁定库存，扣减真实库存
         OmsOrderDetail orderDetail = portalOrderDao.getDetail(orderId);
         int count = portalOrderDao.updateSkuStock(orderDetail.getOrderItemList());
+        portalOrderDao.updateProductSaleAndStock(orderDetail.getOrderItemList());
         return count;
     }
 

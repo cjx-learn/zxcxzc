@@ -22,6 +22,11 @@ public interface PortalOrderDao {
     int updateSkuStock(@Param("itemList") List<OmsOrderItem> orderItemList);
 
     /**
+     * 同步商品销量和总库存
+     */
+    int updateProductSaleAndStock(@Param("itemList") List<OmsOrderItem> orderItemList);
+
+    /**
      * 获取超时订单
      * @param minute 超时时间（分）
      */

@@ -30,4 +30,6 @@ public class PmsPortalProductDetail{
     private List<PmsProductFullReduction> productFullReductionList;
     @Schema(title = "商品可用优惠券")
     private List<SmsCoupon> couponList;
+    @Schema(title = "商品实时浏览量")
+    private Long viewCount;
 }

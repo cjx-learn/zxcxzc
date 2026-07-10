@@ -1,6 +1,7 @@
 const PAY_SIMILAR_LIMIT = 16;
 let lastPayRouteKey = "";
 let lastTriggerRouteKey = "";
+const exposureMemory = new Set();
 const PAY_SIMILAR_TARGET_PATHS = new Set(["", "pages/order/order", "pages/index/index"]);
 const PAY_SIMILAR_CORE_TYPES = new Set([
   "\u540c\u5c0f\u7c7b",
@@ -22,6 +23,56 @@ function storageValue(key) {
     return localStorage.getItem(key) || sessionStorage.getItem(key) || "";
   } catch (error) {
     return "";
+  }
+}
+
+function parseMaybeJson(value) {
+  if (!value || typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return value;
+  }
+}
+
+function findIdDeep(value, depth = 0) {
+  if (!value || depth > 4) return null;
+  if (typeof value === "string") return findIdDeep(parseMaybeJson(value), depth + 1);
+  if (typeof value !== "object") return null;
+  const direct = value.id || value.memberId || value.userId;
+  if (direct) return direct;
+  for (const key of ["memberInfo", "userInfo", "user", "data", "value", "state"]) {
+    const found = findIdDeep(value[key], depth + 1);
+    if (found) return found;
+  }
+  return null;
+}
+
+function getStoredUserId() {
+  const directKeys = ["member", "memberInfo", "userInfo", "user", "pinia-member"];
+  for (const key of directKeys) {
+    const id = findIdDeep(storageValue(key));
+    if (id) return id;
+  }
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const id = findIdDeep(localStorage.getItem(localStorage.key(i)));
+      if (id) return id;
+    }
+  } catch (error) {}
+  return null;
+}
+
+function getRecommendSessionId() {
+  try {
+    let sessionId = localStorage.getItem("mall_h5_session_id");
+    if (!sessionId) {
+      sessionId = `h5-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      localStorage.setItem("mall_h5_session_id", sessionId);
+    }
+    return sessionId;
+  } catch (error) {
+    return "h5-session";
   }
 }
 
@@ -60,6 +111,10 @@ function productId(item) {
   return item.productId || item.id;
 }
 
+function productCategoryId(item) {
+  return item.categoryId || item.productCategoryId;
+}
+
 function productName(item) {
   return item.productName || item.name || "相似好物";
 }
@@ -67,6 +122,38 @@ function productName(item) {
 function productPrice(item) {
   const value = item.productPrice ?? item.price;
   return value == null ? "" : Number(value).toFixed(2);
+}
+
+function markSimilarExposure(id) {
+  const key = `mallRecommendView:h5-pay-similar:${id}`;
+  try {
+    if (sessionStorage.getItem(key)) return false;
+    sessionStorage.setItem(key, "1");
+  } catch (error) {
+    if (exposureMemory.has(key)) return false;
+    exposureMemory.add(key);
+  }
+  return true;
+}
+
+function trackSimilarExposure(item) {
+  const id = Number(productId(item));
+  if (!Number.isFinite(id) || id <= 0 || !markSimilarExposure(id)) return;
+  const categoryId = Number(productCategoryId(item));
+  const userId = Number(getStoredUserId());
+  fetch("/mall-analytics/analytics/event", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "source-client": "miniapp" },
+    body: JSON.stringify({
+      userId: Number.isFinite(userId) && userId > 0 ? userId : 1,
+      productId: id,
+      categoryId: Number.isFinite(categoryId) && categoryId > 0 ? categoryId : null,
+      eventType: "view",
+      sessionId: getRecommendSessionId(),
+      sourcePage: "h5-pay-similar",
+      deviceType: "h5"
+    })
+  }).catch(error => console.warn("pay similar exposure track failed", error));
 }
 
 async function fetchOrderPrimaryProduct(orderId) {
