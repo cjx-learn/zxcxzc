@@ -416,8 +416,8 @@ public class BehaviorEventRepository {
                 countMongoDocuments("memberProductCollection", userId, days),
                 countMongoDistinctProducts("memberProductCollection", userId, days)));
         result.add(summaryRow("cart",
-                countCurrentCartQuantity(userId),
-                countCurrentCartDistinctProducts(userId)));
+                countBehaviorEvents(userId, days, "cart", " AND product_id IS NOT NULL"),
+                countDistinctBehaviorProducts(userId, days, "cart", " AND product_id IS NOT NULL")));
         result.add(summaryRow("order",
                 countOrders(userId, days, "0,1,2,3"),
                 countOrders(userId, days, "0,1,2,3")));
@@ -539,7 +539,7 @@ public class BehaviorEventRepository {
         result.addAll(behaviorEventCategorySummary(userId, days, "view", " AND e.product_id IS NOT NULL"));
         result.addAll(searchEventCategorySummary(userId, days));
         result.addAll(mongoCollectionCategorySummary("fav", "memberProductCollection", userId, days));
-        result.addAll(cartCategorySummary(userId));
+        result.addAll(behaviorEventCategorySummary(userId, days, "cart", " AND e.product_id IS NOT NULL"));
         result.addAll(orderCategorySummary("order", userId, days, "0,1,2,3"));
         result.addAll(orderCategorySummary("pay", userId, days, "1,2,3"));
         return result;

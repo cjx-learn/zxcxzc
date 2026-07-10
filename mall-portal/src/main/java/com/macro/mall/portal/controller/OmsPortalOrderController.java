@@ -52,6 +52,15 @@ public class OmsPortalOrderController {
         return CommonResult.success(result, "下单成功");
     }
 
+    @Operation(summary = "根据历史订单再来一单")
+    @RequestMapping(value = "/reorder", method = RequestMethod.POST)
+    @ResponseBody
+    public CommonResult reorder(@RequestParam Long orderId, HttpServletRequest request) {
+        Map<String, Object> result = portalOrderService.reorder(orderId);
+        recordOrderItems(result.get("orderItemList"), BehaviorEventType.ORDER, "order_reorder", request);
+        return CommonResult.success(result, "下单成功");
+    }
+
     @Operation(summary = "用户支付成功的回调")
     @RequestMapping(value = "/paySuccess", method = RequestMethod.POST)
     @ResponseBody
@@ -60,6 +69,9 @@ public class OmsPortalOrderController {
         if (count != null && count > 0) {
             OmsOrderDetail orderDetail = portalOrderService.detail(orderId);
             if (orderDetail != null) {
+                if (Integer.valueOf(2).equals(orderDetail.getOrderType())) {
+                    recordOrderItems(orderDetail.getOrderItemList(), BehaviorEventType.CART, "order_reorder_pay", request);
+                }
                 recordOrderItems(orderDetail.getOrderItemList(), BehaviorEventType.PAY, "order_pay", request);
             }
         }
