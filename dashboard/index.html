@@ -2270,6 +2270,97 @@
       left: 12px;
     }
 
+    /* evaluation-kpi-layout: keep all five summary cards compact and balanced */
+    #evaluationKpis {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    #evaluationKpis .kpi {
+      min-height: 122px;
+      padding: 18px 16px 16px;
+    }
+
+    #evaluationKpis .kpi-value {
+      margin-top: 12px;
+      font-size: 32px;
+      line-height: 1.08;
+      overflow-wrap: anywhere;
+    }
+
+    #evaluationKpis .kpi-note {
+      margin-top: 7px;
+      line-height: 1.45;
+    }
+
+    .evaluation-definitions {
+      height: 100%;
+      display: grid;
+      align-content: stretch;
+      gap: 0;
+      padding: 10px 20px;
+    }
+
+    .evaluation-definition {
+      display: grid;
+      grid-template-columns: 128px minmax(0, 1fr);
+      align-items: center;
+      gap: 12px;
+      min-height: 46px;
+      padding: 8px 0;
+      border-bottom: 1px solid #e4ebf3;
+    }
+
+    .evaluation-definition:last-child {
+      border-bottom: 0;
+    }
+
+    .evaluation-definition dt,
+    .evaluation-definition dd {
+      margin: 0;
+    }
+
+    .evaluation-definition dt {
+      color: #155e75;
+      font-size: 12px;
+      font-weight: 950;
+    }
+
+    .evaluation-definition dd {
+      color: #52627a;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    @media (min-width: 1181px) and (max-width: 1450px) {
+      #evaluationKpis {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 1180px) {
+      #evaluationKpis {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      #evaluationKpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .evaluation-definition {
+        grid-template-columns: 1fr;
+        gap: 4px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      #evaluationKpis {
+        grid-template-columns: 1fr;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -2487,15 +2578,15 @@ RFM 综合分 = R * 40% + F * 40% + M * 20%。
           </div>
           <div class="panel">
             <div class="panel-title">指标说明</div>
-            <div class="panel-body formula">
-              Precision@K：推荐前 K 个商品中命中的比例。<br>
-              Recall@K：测试集中真实感兴趣商品被推荐覆盖的比例。<br>
-              NDCG@K：命中商品越靠前得分越高。<br>
-              兴趣分类命中率：推荐商品分类是否命中用户测试期真实兴趣分类。<br>
-              分类NDCG@K：命中的兴趣分类越靠前得分越高。<br>
-              兴趣匹配分：综合分类命中率、分类Precision@K、分类NDCG@K和覆盖率，用于课程展示时横向比较算法。<br>
-              说明：由于淘宝外部商品会映射到本商城演示商品，商品 ID 级命中较稀疏，严格商品级指标保留在明细表中。
-            </div>
+            <dl class="panel-body formula evaluation-definitions">
+              <div class="evaluation-definition"><dt>Precision@K</dt><dd>推荐前 K 个商品中命中的比例。</dd></div>
+              <div class="evaluation-definition"><dt>Recall@K</dt><dd>测试集中真实感兴趣商品被推荐覆盖的比例。</dd></div>
+              <div class="evaluation-definition"><dt>NDCG@K</dt><dd>命中商品越靠前，得分越高。</dd></div>
+              <div class="evaluation-definition"><dt>兴趣分类命中率</dt><dd>推荐商品分类是否命中用户测试期真实兴趣分类。</dd></div>
+              <div class="evaluation-definition"><dt>分类NDCG@K</dt><dd>命中的兴趣分类越靠前，得分越高。</dd></div>
+              <div class="evaluation-definition"><dt>兴趣匹配分</dt><dd>综合分类命中率、分类Precision@K、分类NDCG@K和覆盖率，用于横向比较算法。</dd></div>
+              <div class="evaluation-definition"><dt>商品级指标</dt><dd>淘宝外部商品会映射到商城演示商品，商品 ID 级命中较稀疏，严格指标保留在明细表中。</dd></div>
+            </dl>
           </div>
         </div>
         <div class="panel">
