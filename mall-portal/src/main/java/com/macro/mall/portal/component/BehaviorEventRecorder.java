@@ -24,8 +24,13 @@ public class BehaviorEventRecorder {
 
     public void record(String eventType, Long productId, Long categoryId, String keyword,
                        String sourcePage, HttpServletRequest request) {
+        record(getCurrentMemberId(), eventType, productId, categoryId, keyword, sourcePage, request);
+    }
+
+    public void record(Long userId, String eventType, Long productId, Long categoryId, String keyword,
+                       String sourcePage, HttpServletRequest request) {
         UserBehaviorEventDTO event = new UserBehaviorEventDTO();
-        event.setUserId(getCurrentMemberId());
+        event.setUserId(userId);
         event.setSessionId(getSessionId(request));
         event.setProductId(productId);
         event.setCategoryId(categoryId);

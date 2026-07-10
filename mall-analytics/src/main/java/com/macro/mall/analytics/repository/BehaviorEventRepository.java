@@ -21,6 +21,13 @@ import java.util.Map;
 
 @Repository
 public class BehaviorEventRepository {
+    private static final String REAL_BEHAVIOR_SOURCE_CONDITION = """
+                  AND (
+                    source_page IS NULL
+                    OR source_page NOT IN ('seed-category-products', '/demo/behavior-seed')
+                  )
+                """;
+
     @Autowired
     private JdbcTemplate jdbcTemplate;
     @Autowired(required = false)
@@ -416,8 +423,8 @@ public class BehaviorEventRepository {
                 countMongoDocuments("memberProductCollection", userId, days),
                 countMongoDistinctProducts("memberProductCollection", userId, days)));
         result.add(summaryRow("cart",
-                countBehaviorEvents(userId, days, "cart", " AND product_id IS NOT NULL"),
-                countDistinctBehaviorProducts(userId, days, "cart", " AND product_id IS NOT NULL")));
+                countBehaviorEvents(userId, days, "cart", " AND product_id IS NOT NULL\n AND source_page = 'order_reorder_pay'"),
+                countDistinctBehaviorProducts(userId, days, "cart", " AND product_id IS NOT NULL\n AND source_page = 'order_reorder_pay'")));
         result.add(summaryRow("order",
                 countOrders(userId, days, "0,1,2,3"),
                 countOrders(userId, days, "0,1,2,3")));
@@ -539,7 +546,7 @@ public class BehaviorEventRepository {
         result.addAll(behaviorEventCategorySummary(userId, days, "view", " AND e.product_id IS NOT NULL"));
         result.addAll(searchEventCategorySummary(userId, days));
         result.addAll(mongoCollectionCategorySummary("fav", "memberProductCollection", userId, days));
-        result.addAll(behaviorEventCategorySummary(userId, days, "cart", " AND e.product_id IS NOT NULL"));
+        result.addAll(cartBehaviorEventCategorySummary(userId, days));
         result.addAll(orderCategorySummary("order", userId, days, "0,1,2,3"));
         result.addAll(orderCategorySummary("pay", userId, days, "1,2,3"));
         return result;
@@ -565,6 +572,28 @@ public class BehaviorEventRepository {
                 GROUP BY COALESCE(c.id, pc.id), COALESCE(c.name, pc.name, '\u672a\u8bc6\u522b')
                 ORDER BY eventCount DESC
                 """, eventType, userId, days, eventType);
+    }
+
+    private List<Map<String, Object>> cartBehaviorEventCategorySummary(Long userId, int days) {
+        return jdbcTemplate.queryForList("""
+                SELECT
+                  'cart' AS eventType,
+                  COALESCE(c.id, pc.id) AS categoryId,
+                  COALESCE(c.name, pc.name, '\u672a\u8bc6\u522b') AS categoryName,
+                  COUNT(*) AS eventCount,
+                  COUNT(DISTINCT e.product_id) AS productCount
+                FROM user_behavior_event e
+                LEFT JOIN pms_product p ON e.product_id = p.id
+                LEFT JOIN pms_product_category c ON e.category_id = c.id
+                LEFT JOIN pms_product_category pc ON p.product_category_id = pc.id
+                WHERE e.user_id = ?
+                  AND e.event_time >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                  AND e.event_type = 'cart'
+                  AND e.product_id IS NOT NULL
+                  AND e.source_page = 'order_reorder_pay'
+                GROUP BY COALESCE(c.id, pc.id), COALESCE(c.name, pc.name, '\u672a\u8bc6\u522b')
+                ORDER BY eventCount DESC
+                """, userId, days);
     }
 
     private List<Map<String, Object>> searchEventCategorySummary(Long userId, int days) {

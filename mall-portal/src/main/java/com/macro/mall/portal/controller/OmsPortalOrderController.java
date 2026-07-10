@@ -48,7 +48,7 @@ public class OmsPortalOrderController {
     @ResponseBody
     public CommonResult generateOrder(@RequestBody OrderParam orderParam, HttpServletRequest request) {
         Map<String, Object> result = portalOrderService.generateOrder(orderParam);
-        recordOrderItems(result.get("orderItemList"), BehaviorEventType.ORDER, "order_generate", request);
+        recordOrderItems(result.get("orderItemList"), null, BehaviorEventType.ORDER, "order_generate", request);
         return CommonResult.success(result, "下单成功");
     }
 
@@ -57,7 +57,8 @@ public class OmsPortalOrderController {
     @ResponseBody
     public CommonResult reorder(@RequestParam Long orderId, HttpServletRequest request) {
         Map<String, Object> result = portalOrderService.reorder(orderId);
-        recordOrderItems(result.get("orderItemList"), BehaviorEventType.ORDER, "order_reorder", request);
+        Long memberId = result.get("order") instanceof com.macro.mall.model.OmsOrder order ? order.getMemberId() : null;
+        recordOrderItems(result.get("orderItemList"), memberId, BehaviorEventType.ORDER, "order_reorder", request);
         return CommonResult.success(result, "下单成功");
     }
 
@@ -70,22 +71,26 @@ public class OmsPortalOrderController {
             OmsOrderDetail orderDetail = portalOrderService.detail(orderId);
             if (orderDetail != null) {
                 if (Integer.valueOf(2).equals(orderDetail.getOrderType())) {
-                    recordOrderItems(orderDetail.getOrderItemList(), BehaviorEventType.CART, "order_reorder_pay", request);
+                    recordOrderItems(orderDetail.getOrderItemList(), orderDetail.getMemberId(), BehaviorEventType.CART, "order_reorder_pay", request);
                 }
-                recordOrderItems(orderDetail.getOrderItemList(), BehaviorEventType.PAY, "order_pay", request);
+                recordOrderItems(orderDetail.getOrderItemList(), orderDetail.getMemberId(), BehaviorEventType.PAY, "order_pay", request);
             }
         }
         return CommonResult.success(count, "支付成功");
     }
 
-    private void recordOrderItems(Object orderItemList, String eventType, String sourcePage, HttpServletRequest request) {
+    private void recordOrderItems(Object orderItemList, Long userId, String eventType, String sourcePage, HttpServletRequest request) {
         if (!(orderItemList instanceof List<?>)) {
             return;
         }
         for (Object item : (List<?>) orderItemList) {
             if (item instanceof OmsOrderItem) {
                 OmsOrderItem orderItem = (OmsOrderItem) item;
-                behaviorEventRecorder.record(eventType, orderItem.getProductId(), orderItem.getProductCategoryId(), null, sourcePage, request);
+                if (userId == null) {
+                    behaviorEventRecorder.record(eventType, orderItem.getProductId(), orderItem.getProductCategoryId(), null, sourcePage, request);
+                } else {
+                    behaviorEventRecorder.record(userId, eventType, orderItem.getProductId(), orderItem.getProductCategoryId(), null, sourcePage, request);
+                }
             }
         }
     }
