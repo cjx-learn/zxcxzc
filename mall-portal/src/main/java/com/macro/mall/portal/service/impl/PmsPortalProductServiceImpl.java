@@ -14,7 +14,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -47,18 +50,22 @@ public class PmsPortalProductServiceImpl implements PmsPortalProductService {
     @Override
     public List<PmsProduct> search(String keyword, Long brandId, Long productCategoryId, Integer pageNum, Integer pageSize, Integer sort) {
         List<Long> searchCategoryIds = java.util.Collections.emptyList();
+        List<String> searchKeywords = java.util.Collections.emptyList();
         if (StrUtil.isNotEmpty(keyword)) {
-            searchCategoryIds = getSearchCategoryIds(keyword.trim());
+            searchKeywords = expandSearchKeywords(keyword.trim());
+            searchCategoryIds = getSearchCategoryIds(searchKeywords);
         }
         PageHelper.startPage(pageNum, pageSize);
         PmsProductExample example = new PmsProductExample();
-        if (StrUtil.isNotEmpty(keyword)) {
-            String likeKeyword = "%" + keyword.trim() + "%";
-            addSearchCriteria(example, brandId, productCategoryId, likeKeyword, "name");
-            addSearchCriteria(example, brandId, productCategoryId, likeKeyword, "keywords");
-            addSearchCriteria(example, brandId, productCategoryId, likeKeyword, "subTitle");
-            addSearchCriteria(example, brandId, productCategoryId, likeKeyword, "brandName");
-            addSearchCriteria(example, brandId, productCategoryId, likeKeyword, "productCategoryName");
+        if (CollUtil.isNotEmpty(searchKeywords)) {
+            for (String searchKeyword : searchKeywords) {
+                String likeKeyword = "%" + searchKeyword + "%";
+                addSearchCriteria(example, brandId, productCategoryId, likeKeyword, "name");
+                addSearchCriteria(example, brandId, productCategoryId, likeKeyword, "keywords");
+                addSearchCriteria(example, brandId, productCategoryId, likeKeyword, "subTitle");
+                addSearchCriteria(example, brandId, productCategoryId, likeKeyword, "brandName");
+                addSearchCriteria(example, brandId, productCategoryId, likeKeyword, "productCategoryName");
+            }
             addCategorySearchCriteria(example, brandId, productCategoryId, searchCategoryIds);
         } else {
             PmsProductExample.Criteria criteria = example.createCriteria();
@@ -115,11 +122,40 @@ public class PmsPortalProductServiceImpl implements PmsPortalProductService {
         }
     }
 
-    private List<Long> getSearchCategoryIds(String keyword) {
+    private List<String> expandSearchKeywords(String keyword) {
+        Set<String> keywords = new LinkedHashSet<>();
+        String normalized = keyword.trim();
+        if (StrUtil.isEmpty(normalized)) {
+            return new ArrayList<>();
+        }
+        keywords.add(normalized);
+        if (normalized.endsWith("\u5b50") && normalized.length() > 1 && !"\u978b\u5b50".equals(normalized)) {
+            keywords.add(normalized.substring(0, normalized.length() - 1));
+        }
+        addIfContains(keywords, normalized, "\u88e4\u5b50", "\u88e4", "\u4f11\u95f2\u88e4", "\u725b\u4ed4\u88e4");
+        addIfContains(keywords, normalized, "\u978b\u5b50", "\u8fd0\u52a8\u978b");
+        addIfContains(keywords, normalized, "\u8863\u670d", "\u670d\u9970", "T\u6064", "\u886c\u886b", "\u5916\u5957");
+        addIfContains(keywords, normalized, "\u7535\u89c6\u673a", "\u7535\u89c6");
+        addIfContains(keywords, normalized, "\u7b14\u8bb0\u672c", "\u7b14\u8bb0\u672c\u7535\u8111");
+        addIfContains(keywords, normalized, "\u7535\u8111", "\u7535\u8111\u529e\u516c", "\u7b14\u8bb0\u672c\u7535\u8111");
+        addIfContains(keywords, normalized, "U\u76d8", "\u5b58\u50a8", "\u5b58\u50a8\u8bbe\u5907");
+        addIfContains(keywords, normalized, "\u786c\u76d8", "\u5b58\u50a8", "\u5b58\u50a8\u8bbe\u5907");
+        return new ArrayList<>(keywords);
+    }
+
+    private void addIfContains(Set<String> keywords, String keyword, String match, String... additions) {
+        if (keyword.contains(match)) {
+            for (String addition : additions) {
+                keywords.add(addition);
+            }
+        }
+    }
+
+    private List<Long> getSearchCategoryIds(List<String> keywords) {
         PmsProductCategoryExample example = new PmsProductCategoryExample();
         List<PmsProductCategory> allList = productCategoryMapper.selectByExample(example);
         java.util.Set<Long> categoryIds = allList.stream()
-                .filter(item -> item.getName() != null && item.getName().contains(keyword))
+                .filter(item -> item.getName() != null && keywords.stream().anyMatch(keyword -> item.getName().contains(keyword)))
                 .map(PmsProductCategory::getId)
                 .collect(Collectors.toSet());
         boolean changed;

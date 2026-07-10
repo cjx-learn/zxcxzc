@@ -16,8 +16,10 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Repository
 public class BehaviorEventRepository {
@@ -193,16 +195,19 @@ public class BehaviorEventRepository {
 
     public Map<String, Object> userProfile(Long userId, int days) {
         List<Map<String, Object>> profiles = jdbcTemplate.queryForList("""
-                SELECT up.user_id AS userId, m.username AS username,
-                       up.view_count AS viewCount, up.search_count AS searchCount, up.fav_count AS favCount,
-                       up.cart_count AS cartCount, up.order_count AS orderCount, up.pay_count AS payCount,
-                       up.active_days AS activeDays, up.favorite_category_id AS favoriteCategoryId,
-                       c.name AS favoriteCategoryName, up.favorite_category_score AS favoriteCategoryScore,
-                       up.last_active_time AS lastActiveTime, up.user_level AS userLevel, up.update_time AS updateTime
-                FROM user_profile up
-                LEFT JOIN ums_member m ON up.user_id = m.id
+                SELECT m.id AS userId, m.username AS username,
+                       IFNULL(up.view_count, 0) AS viewCount, IFNULL(up.search_count, 0) AS searchCount,
+                       IFNULL(up.fav_count, 0) AS favCount,
+                       IFNULL(up.cart_count, 0) AS cartCount, IFNULL(up.order_count, 0) AS orderCount,
+                       IFNULL(up.pay_count, 0) AS payCount,
+                       IFNULL(up.active_days, 0) AS activeDays, up.favorite_category_id AS favoriteCategoryId,
+                       c.name AS favoriteCategoryName, IFNULL(up.favorite_category_score, 0) AS favoriteCategoryScore,
+                       up.last_active_time AS lastActiveTime, COALESCE(up.user_level, '低价值用户') AS userLevel,
+                       up.update_time AS updateTime
+                FROM ums_member m
+                LEFT JOIN user_profile up ON m.id = up.user_id
                 LEFT JOIN pms_product_category c ON up.favorite_category_id = c.id
-                WHERE up.user_id = ?
+                WHERE m.id = ?
                 """, userId);
         Map<String, Object> result = profiles.isEmpty() ? new LinkedHashMap<>() : new LinkedHashMap<>(profiles.get(0));
         result.put("eventSummary", userEventSummary(userId, days));
@@ -250,21 +255,34 @@ public class BehaviorEventRepository {
         List<Object> args = new ArrayList<>();
         Long exactId = parseLong(keyword);
         if (StringUtils.hasText(keyword)) {
-            String likeKeyword = "%" + keyword.trim() + "%";
+            List<String> searchKeywords = expandSearchKeywords(keyword.trim());
             sql.append("""
                     AND (
                       p.id = ?
-                      OR p.name LIKE ?
-                      OR p.sub_title LIKE ?
-                      OR p.keywords LIKE ?
-                      OR p.product_sn LIKE ?
-                    )
                     """);
             args.add(exactId == null ? -1L : exactId);
-            args.add(likeKeyword);
-            args.add(likeKeyword);
-            args.add(likeKeyword);
-            args.add(likeKeyword);
+            for (String searchKeyword : searchKeywords) {
+                String likeKeyword = "%" + searchKeyword + "%";
+                sql.append("""
+                          OR p.name LIKE ?
+                          OR p.sub_title LIKE ?
+                          OR p.keywords LIKE ?
+                          OR p.product_sn LIKE ?
+                          OR p.brand_name LIKE ?
+                          OR p.product_category_name LIKE ?
+                          OR c.name LIKE ?
+                        """);
+                args.add(likeKeyword);
+                args.add(likeKeyword);
+                args.add(likeKeyword);
+                args.add(likeKeyword);
+                args.add(likeKeyword);
+                args.add(likeKeyword);
+                args.add(likeKeyword);
+            }
+            sql.append("""
+                    )
+                    """);
         }
         sql.append("""
                 ORDER BY
@@ -280,30 +298,65 @@ public class BehaviorEventRepository {
         return jdbcTemplate.queryForList(sql.toString(), args.toArray());
     }
 
+    private List<String> expandSearchKeywords(String keyword) {
+        Set<String> keywords = new LinkedHashSet<>();
+        String normalized = keyword.trim();
+        if (!StringUtils.hasText(normalized)) {
+            return new ArrayList<>();
+        }
+        keywords.add(normalized);
+        if (normalized.endsWith("\u5b50") && normalized.length() > 1 && !"\u978b\u5b50".equals(normalized)) {
+            keywords.add(normalized.substring(0, normalized.length() - 1));
+        }
+        addIfContains(keywords, normalized, "\u88e4\u5b50", "\u88e4", "\u4f11\u95f2\u88e4", "\u725b\u4ed4\u88e4");
+        addIfContains(keywords, normalized, "\u978b\u5b50", "\u8fd0\u52a8\u978b");
+        addIfContains(keywords, normalized, "\u8863\u670d", "\u670d\u9970", "T\u6064", "\u886c\u886b", "\u5916\u5957");
+        addIfContains(keywords, normalized, "\u7535\u89c6\u673a", "\u7535\u89c6");
+        addIfContains(keywords, normalized, "\u7b14\u8bb0\u672c", "\u7b14\u8bb0\u672c\u7535\u8111");
+        addIfContains(keywords, normalized, "\u7535\u8111", "\u7535\u8111\u529e\u516c", "\u7b14\u8bb0\u672c\u7535\u8111");
+        addIfContains(keywords, normalized, "U\u76d8", "\u5b58\u50a8", "\u5b58\u50a8\u8bbe\u5907");
+        addIfContains(keywords, normalized, "\u786c\u76d8", "\u5b58\u50a8", "\u5b58\u50a8\u8bbe\u5907");
+        return new ArrayList<>(keywords);
+    }
+
+    private void addIfContains(Set<String> keywords, String keyword, String match, String... additions) {
+        if (keyword.contains(match)) {
+            for (String addition : additions) {
+                keywords.add(addition);
+            }
+        }
+    }
+
     public Map<String, Object> usersOverview(int days) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("summary", jdbcTemplate.queryForMap("""
                 SELECT
                   COUNT(*) AS profileUserCount,
-                  SUM(user_level = '高价值用户') AS highValueUserCount,
-                  SUM(user_level = '中价值用户') AS middleValueUserCount,
-                  SUM(user_level = '低价值用户') AS lowValueUserCount,
-                  SUM(user_level = '中价值用户') AS potentialUserCount,
+                  SUM(COALESCE(up.user_level, '低价值用户') = '高价值用户') AS highValueUserCount,
+                  SUM(COALESCE(up.user_level, '低价值用户') = '中价值用户') AS middleValueUserCount,
+                  SUM(COALESCE(up.user_level, '低价值用户') = '低价值用户') AS lowValueUserCount,
+                  SUM(COALESCE(up.user_level, '低价值用户') = '中价值用户') AS potentialUserCount,
                   0 AS normalUserCount,
-                  SUM(user_level = '低价值用户') AS lowActiveUserCount,
-                  IFNULL(ROUND(AVG(active_days), 2), 0) AS avgActiveDays
-                FROM user_profile
+                  SUM(COALESCE(up.user_level, '低价值用户') = '低价值用户') AS lowActiveUserCount,
+                  IFNULL(ROUND(AVG(IFNULL(up.active_days, 0)), 2), 0) AS avgActiveDays
+                FROM ums_member m
+                LEFT JOIN user_profile up ON m.id = up.user_id
+                WHERE IFNULL(m.status, 1) = 1
                 """));
         result.put("levelDistribution", jdbcTemplate.queryForList("""
-                SELECT user_level AS userLevel, COUNT(*) AS userCount
-                FROM user_profile
-                GROUP BY user_level
-                ORDER BY FIELD(user_level, '高价值用户', '中价值用户', '低价值用户')
+                SELECT COALESCE(up.user_level, '低价值用户') AS userLevel, COUNT(*) AS userCount
+                FROM ums_member m
+                LEFT JOIN user_profile up ON m.id = up.user_id
+                WHERE IFNULL(m.status, 1) = 1
+                GROUP BY COALESCE(up.user_level, '低价值用户')
+                ORDER BY FIELD(userLevel, '高价值用户', '中价值用户', '低价值用户')
                 """));
         result.put("favoriteCategoryDistribution", jdbcTemplate.queryForList("""
                 SELECT up.favorite_category_id AS categoryId, IFNULL(c.name, '未识别') AS categoryName, COUNT(*) AS userCount
-                FROM user_profile up
+                FROM ums_member m
+                LEFT JOIN user_profile up ON m.id = up.user_id
                 LEFT JOIN pms_product_category c ON up.favorite_category_id = c.id
+                WHERE IFNULL(m.status, 1) = 1
                 GROUP BY up.favorite_category_id, c.name
                 ORDER BY userCount DESC
                 LIMIT 10
@@ -336,69 +389,146 @@ public class BehaviorEventRepository {
                   END AS rfmLevel
                 FROM (
                   SELECT
-                    up.user_id AS userId,
-                    m.username AS username,
-                    up.user_level AS userLevel,
-                    up.favorite_category_id AS favoriteCategoryId,
+                    base.id AS userId,
+                    base.username AS username,
+                    base.create_time AS createTime,
+                    COALESCE(base.user_level, '低价值用户') AS userLevel,
+                    base.favorite_category_id AS favoriteCategoryId,
                     c.name AS favoriteCategoryName,
-                    up.last_active_time AS lastActiveTime,
-                    up.active_days AS activeDays,
-                    (IFNULL(up.view_count, 0) + IFNULL(up.search_count, 0)
-                      + IFNULL(up.fav_count, 0) * 2 + IFNULL(up.cart_count, 0) * 3
-                      + IFNULL(up.order_count, 0) * 4 + IFNULL(up.pay_count, 0) * 5
-                      + IFNULL(up.active_days, 0) * 2) AS behaviorScore,
-                    IFNULL(pay.payAmount, 0) AS payAmount,
-                    CASE
-                      WHEN up.last_active_time IS NULL THEN 0
-                      WHEN DATEDIFF(NOW(), up.last_active_time) <= 7 THEN 100
-                      WHEN DATEDIFF(NOW(), up.last_active_time) <= 30 THEN 70
-                      WHEN DATEDIFF(NOW(), up.last_active_time) <= 90 THEN 40
-                      ELSE 10
-                    END AS recencyScore,
-                    LEAST(100, (IFNULL(up.view_count, 0) + IFNULL(up.search_count, 0)
-                      + IFNULL(up.fav_count, 0) * 2 + IFNULL(up.cart_count, 0) * 3
-                      + IFNULL(up.order_count, 0) * 4 + IFNULL(up.pay_count, 0) * 5
-                      + IFNULL(up.active_days, 0) * 2) * 10) AS frequencyScore,
-                    CASE
-                      WHEN IFNULL(pay.payAmount, 0) >= 5000 THEN 100
-                      WHEN IFNULL(pay.payAmount, 0) >= 1000 THEN 70
-                      WHEN IFNULL(pay.payAmount, 0) > 0 THEN 40
-                      ELSE 0
-                    END AS monetaryScore,
-                    ROUND(
+                    base.last_active_time AS lastActiveTime,
+                    IFNULL(base.active_days, 0) AS activeDays,
+                    (IFNULL(base.view_count, 0) + IFNULL(base.search_count, 0)
+                      + IFNULL(base.fav_count, 0) * 2 + IFNULL(base.cart_count, 0) * 3
+                      + IFNULL(base.order_count, 0) * 4 + IFNULL(base.pay_count, 0) * 5
+                      + IFNULL(base.active_days, 0) * 2) AS behaviorScore,
+                    base.payAmount,
+                    base.recencyScore,
+                    base.frequencyScore,
+                    base.monetaryScore,
+                    ROUND(base.recencyScore * 0.4 + base.frequencyScore * 0.4 + base.monetaryScore * 0.2, 2) AS rfmScore
+                  FROM (
+                    SELECT raw.*,
                       CASE
-                        WHEN up.last_active_time IS NULL THEN 0
-                        WHEN DATEDIFF(NOW(), up.last_active_time) <= 7 THEN 100
-                        WHEN DATEDIFF(NOW(), up.last_active_time) <= 30 THEN 70
-                        WHEN DATEDIFF(NOW(), up.last_active_time) <= 90 THEN 40
-                        ELSE 10
-                      END * 0.4
-                      + LEAST(100, (IFNULL(up.view_count, 0) + IFNULL(up.search_count, 0)
-                        + IFNULL(up.fav_count, 0) * 2 + IFNULL(up.cart_count, 0) * 3
-                        + IFNULL(up.order_count, 0) * 4 + IFNULL(up.pay_count, 0) * 5
-                        + IFNULL(up.active_days, 0) * 2) * 10) * 0.4
-                      + CASE
-                          WHEN IFNULL(pay.payAmount, 0) >= 5000 THEN 100
-                          WHEN IFNULL(pay.payAmount, 0) >= 1000 THEN 70
-                          WHEN IFNULL(pay.payAmount, 0) > 0 THEN 40
-                          ELSE 0
-                        END * 0.2,
-                      2
-                    ) AS rfmScore
-                  FROM user_profile up
-                  LEFT JOIN ums_member m ON up.user_id = m.id
-                  LEFT JOIN pms_product_category c ON up.favorite_category_id = c.id
-                  LEFT JOIN (
-                    SELECT member_id, SUM(pay_amount) AS payAmount
-                    FROM oms_order
-                    WHERE payment_time IS NOT NULL
-                      AND create_time >= DATE_SUB(NOW(), INTERVAL ? DAY)
-                    GROUP BY member_id
-                  ) pay ON up.user_id = pay.member_id
+                        WHEN raw.last_active_time IS NULL THEN 0
+                        ELSE ROUND(
+                          GREATEST(10, 100 - (
+                            LEAST(GREATEST(DATEDIFF(NOW(), raw.last_active_time), 0), GREATEST(?, 1))
+                            * 90 / GREATEST(?, 1)
+                          )),
+                          2
+                        )
+                      END AS recencyScore,
+                      CASE
+                        WHEN raw.behaviorScore <= 0 THEN 0
+                        ELSE ROUND(40 + (raw.behaviorPercentile * 60), 2)
+                      END AS frequencyScore,
+                      CASE
+                        WHEN raw.payAmount <= 0 THEN 0
+                        ELSE ROUND(40 + (raw.payPercentile * 60), 2)
+                      END AS monetaryScore
+                    FROM (
+                      SELECT
+                        m.id,
+                        m.username,
+                        m.create_time,
+                        up.user_level,
+                        up.favorite_category_id,
+                        up.last_active_time,
+                        up.active_days,
+                        up.view_count,
+                        up.search_count,
+                        up.fav_count,
+                        up.cart_count,
+                        up.order_count,
+                        up.pay_count,
+                        (IFNULL(up.view_count, 0) + IFNULL(up.search_count, 0)
+                          + IFNULL(up.fav_count, 0) * 2 + IFNULL(up.cart_count, 0) * 3
+                          + IFNULL(up.order_count, 0) * 4 + IFNULL(up.pay_count, 0) * 5
+                          + IFNULL(up.active_days, 0) * 2) AS behaviorScore,
+                        IFNULL(pay.payAmount, 0) AS payAmount,
+                        IFNULL(pay_rank.payPercentile, 0) AS payPercentile,
+                        IFNULL(behavior_rank.behaviorPercentile, 0) AS behaviorPercentile
+                      FROM ums_member m
+                      LEFT JOIN user_profile up ON m.id = up.user_id
+                      LEFT JOIN (
+                        SELECT member_id, SUM(pay_amount) AS payAmount
+                        FROM oms_order
+                        WHERE payment_time IS NOT NULL
+                          AND create_time >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                        GROUP BY member_id
+                      ) pay ON m.id = pay.member_id
+                      LEFT JOIN (
+                        SELECT p1.member_id,
+                          COUNT(p2.member_id) / total.totalCount AS payPercentile
+                        FROM (
+                          SELECT m.id AS member_id, IFNULL(pay.payAmount, 0) AS payAmount
+                          FROM ums_member m
+                          LEFT JOIN (
+                            SELECT member_id, SUM(pay_amount) AS payAmount
+                            FROM oms_order
+                            WHERE payment_time IS NOT NULL
+                              AND create_time >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                            GROUP BY member_id
+                          ) pay ON m.id = pay.member_id
+                          WHERE IFNULL(m.status, 1) = 1
+                        ) p1
+                        JOIN (
+                          SELECT m.id AS member_id, IFNULL(pay.payAmount, 0) AS payAmount
+                          FROM ums_member m
+                          LEFT JOIN (
+                            SELECT member_id, SUM(pay_amount) AS payAmount
+                            FROM oms_order
+                            WHERE payment_time IS NOT NULL
+                              AND create_time >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                            GROUP BY member_id
+                          ) pay ON m.id = pay.member_id
+                          WHERE IFNULL(m.status, 1) = 1
+                        ) p2 ON p2.payAmount <= p1.payAmount
+                        CROSS JOIN (
+                          SELECT COUNT(*) AS totalCount
+                          FROM ums_member
+                          WHERE IFNULL(status, 1) = 1
+                        ) total
+                        GROUP BY p1.member_id, total.totalCount
+                      ) pay_rank ON m.id = pay_rank.member_id
+                      LEFT JOIN (
+                        SELECT b1.member_id,
+                          COUNT(b2.member_id) / total.totalCount AS behaviorPercentile
+                        FROM (
+                          SELECT m.id AS member_id,
+                            (IFNULL(up.view_count, 0) + IFNULL(up.search_count, 0)
+                              + IFNULL(up.fav_count, 0) * 2 + IFNULL(up.cart_count, 0) * 3
+                              + IFNULL(up.order_count, 0) * 4 + IFNULL(up.pay_count, 0) * 5
+                              + IFNULL(up.active_days, 0) * 2) AS behaviorScore
+                          FROM ums_member m
+                          LEFT JOIN user_profile up ON m.id = up.user_id
+                          WHERE IFNULL(m.status, 1) = 1
+                        ) b1
+                        JOIN (
+                          SELECT m.id AS member_id,
+                            (IFNULL(up.view_count, 0) + IFNULL(up.search_count, 0)
+                              + IFNULL(up.fav_count, 0) * 2 + IFNULL(up.cart_count, 0) * 3
+                              + IFNULL(up.order_count, 0) * 4 + IFNULL(up.pay_count, 0) * 5
+                              + IFNULL(up.active_days, 0) * 2) AS behaviorScore
+                          FROM ums_member m
+                          LEFT JOIN user_profile up ON m.id = up.user_id
+                          WHERE IFNULL(m.status, 1) = 1
+                        ) b2 ON b2.behaviorScore <= b1.behaviorScore
+                        CROSS JOIN (
+                          SELECT COUNT(*) AS totalCount
+                          FROM ums_member
+                          WHERE IFNULL(status, 1) = 1
+                        ) total
+                        GROUP BY b1.member_id, total.totalCount
+                      ) behavior_rank ON m.id = behavior_rank.member_id
+                      WHERE IFNULL(m.status, 1) = 1
+                    ) raw
+                  ) base
+                  LEFT JOIN pms_product_category c ON base.favorite_category_id = c.id
                 ) ranked
-                ORDER BY ranked.rfmScore DESC, ranked.lastActiveTime DESC
+                ORDER BY ranked.rfmScore DESC, ranked.lastActiveTime DESC, ranked.createTime DESC, ranked.userId ASC
                 LIMIT ?
-                """, days, limit);
+                """, days, days, days, days, days, limit);
     }
 
     public List<Map<String, Object>> categories() {
