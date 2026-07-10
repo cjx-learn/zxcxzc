@@ -1,0 +1,1 @@
+import{h as a}from"./http.94CetqdY.js";const r=r=>a({method:"GET",url:`/brand/detail/${r}`}),t=r=>a({method:"GET",url:"/brand/productList",params:r}),s=r=>a({method:"GET",url:"/brand/recommendList",params:r});export{r as a,t as b,s as g};

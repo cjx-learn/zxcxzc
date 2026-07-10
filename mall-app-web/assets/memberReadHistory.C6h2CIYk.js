@@ -1,0 +1,1 @@
+import{h as r}from"./http.94CetqdY.js";const e=e=>r({method:"POST",url:"/member/readHistory/create",data:e}),a=e=>r({method:"GET",url:"/member/readHistory/list",params:e}),t=()=>r({method:"POST",url:"/member/readHistory/clear"});export{t as a,e as c,a as f};

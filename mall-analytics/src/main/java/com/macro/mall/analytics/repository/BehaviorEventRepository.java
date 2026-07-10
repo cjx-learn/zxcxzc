@@ -1,14 +1,20 @@
 package com.macro.mall.analytics.repository;
 
 import com.macro.mall.common.domain.UserBehaviorEventDTO;
+import org.bson.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +23,8 @@ import java.util.Map;
 public class BehaviorEventRepository {
     @Autowired
     private JdbcTemplate jdbcTemplate;
+    @Autowired(required = false)
+    private MongoTemplate mongoTemplate;
 
     public void insert(UserBehaviorEventDTO event) {
         LocalDateTime eventTime = event.getEventTime() == null ? LocalDateTime.now() : event.getEventTime();
@@ -119,6 +127,7 @@ public class BehaviorEventRepository {
                 """, userId);
         Map<String, Object> result = profiles.isEmpty() ? new LinkedHashMap<>() : new LinkedHashMap<>(profiles.get(0));
         result.put("eventSummary", userEventSummary(userId, days));
+        result.put("eventCategorySummary", userEventCategorySummary(userId, days));
         result.put("recentEvents", recentUserEvents(userId, 10));
         return result;
     }
@@ -144,7 +153,7 @@ public class BehaviorEventRepository {
     }
 
     public List<Map<String, Object>> searchProducts(String keyword, int limit) {
-        int safeLimit = Math.max(1, Math.min(limit, 30));
+        int safeLimit = Math.max(1, Math.min(limit, 100));
         StringBuilder sql = new StringBuilder("""
                 SELECT p.id AS productId, p.name AS productName, p.pic AS productPic,
                        p.price AS productPrice, p.product_sn AS productSn,
@@ -198,9 +207,11 @@ public class BehaviorEventRepository {
                 SELECT
                   COUNT(*) AS profileUserCount,
                   SUM(user_level = '高价值用户') AS highValueUserCount,
-                  SUM(user_level = '潜在购买用户') AS potentialUserCount,
-                  SUM(user_level = '普通用户') AS normalUserCount,
-                  SUM(user_level = '低活跃用户') AS lowActiveUserCount,
+                  SUM(user_level = '中价值用户') AS middleValueUserCount,
+                  SUM(user_level = '低价值用户') AS lowValueUserCount,
+                  SUM(user_level = '中价值用户') AS potentialUserCount,
+                  0 AS normalUserCount,
+                  SUM(user_level = '低价值用户') AS lowActiveUserCount,
                   IFNULL(ROUND(AVG(active_days), 2), 0) AS avgActiveDays
                 FROM user_profile
                 """));
@@ -208,7 +219,7 @@ public class BehaviorEventRepository {
                 SELECT user_level AS userLevel, COUNT(*) AS userCount
                 FROM user_profile
                 GROUP BY user_level
-                ORDER BY FIELD(user_level, '高价值用户', '潜在购买用户', '普通用户', '低活跃用户')
+                ORDER BY FIELD(user_level, '高价值用户', '中价值用户', '低价值用户')
                 """));
         result.put("favoriteCategoryDistribution", jdbcTemplate.queryForList("""
                 SELECT up.favorite_category_id AS categoryId, IFNULL(c.name, '未识别') AS categoryName, COUNT(*) AS userCount
@@ -322,13 +333,290 @@ public class BehaviorEventRepository {
     }
 
     private List<Map<String, Object>> userEventSummary(Long userId, int days) {
-        return jdbcTemplate.queryForList("""
-                SELECT event_type AS eventType, COUNT(*) AS eventCount, COUNT(DISTINCT product_id) AS productCount
+        List<Map<String, Object>> result = new ArrayList<>();
+        result.add(summaryRow("view",
+                countBehaviorEvents(userId, days, "view", " AND product_id IS NOT NULL"),
+                countDistinctBehaviorProducts(userId, days, "view", " AND product_id IS NOT NULL")));
+        result.add(summaryRow("search",
+                countKeywordSearches(userId, days),
+                countDistinctSearchKeywords(userId, days)));
+        result.add(summaryRow("fav",
+                countMongoDocuments("memberProductCollection", userId, days),
+                countMongoDistinctProducts("memberProductCollection", userId, days)));
+        result.add(summaryRow("cart",
+                countCurrentCartQuantity(userId),
+                countCurrentCartDistinctProducts(userId)));
+        result.add(summaryRow("order",
+                countOrders(userId, days, "0,1,2,3"),
+                countOrders(userId, days, "0,1,2,3")));
+        result.add(summaryRow("pay",
+                countOrders(userId, days, "1,2,3"),
+                countOrders(userId, days, "1,2,3")));
+        return result;
+    }
+
+    private Map<String, Object> summaryRow(String eventType, long eventCount, long productCount) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("eventType", eventType);
+        row.put("eventCount", eventCount);
+        row.put("productCount", productCount);
+        return row;
+    }
+
+    private long countBehaviorEvents(Long userId, int days, String eventType, String extraCondition) {
+        return queryLong("""
+                SELECT COUNT(*)
                 FROM user_behavior_event
-                WHERE user_id = ? AND event_time >= DATE_SUB(NOW(), INTERVAL ? DAY)
-                GROUP BY event_type
-                ORDER BY FIELD(event_type, 'view','search','fav','cart','order','pay')
+                WHERE user_id = ?
+                  AND event_time >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                  AND event_type = ?
+                """ + extraCondition, userId, days, eventType);
+    }
+
+    private long countDistinctBehaviorProducts(Long userId, int days, String eventType, String extraCondition) {
+        return queryLong("""
+                SELECT COUNT(DISTINCT product_id)
+                FROM user_behavior_event
+                WHERE user_id = ?
+                  AND event_time >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                  AND event_type = ?
+                """ + extraCondition, userId, days, eventType);
+    }
+
+    private long countKeywordSearches(Long userId, int days) {
+        return queryLong("""
+                SELECT COUNT(*)
+                FROM user_behavior_event
+                WHERE user_id = ?
+                  AND event_time >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                  AND event_type = 'search'
+                  AND keyword IS NOT NULL
+                  AND TRIM(keyword) <> ''
                 """, userId, days);
+    }
+
+    private long countDistinctSearchKeywords(Long userId, int days) {
+        return queryLong("""
+                SELECT COUNT(DISTINCT TRIM(keyword))
+                FROM user_behavior_event
+                WHERE user_id = ?
+                  AND event_time >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                  AND event_type = 'search'
+                  AND keyword IS NOT NULL
+                  AND TRIM(keyword) <> ''
+                """, userId, days);
+    }
+
+    private long countOrders(Long userId, int days, String statuses) {
+        return queryLong("""
+                SELECT COUNT(*)
+                FROM oms_order
+                WHERE member_id = ?
+                  AND create_time >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                  AND IFNULL(delete_status, 0) = 0
+                  AND status IN (
+                """ + statuses + ")", userId, days);
+    }
+
+    private long countCurrentCartQuantity(Long userId) {
+        return queryLong("""
+                SELECT IFNULL(SUM(IFNULL(quantity, 0)), 0)
+                FROM oms_cart_item
+                WHERE member_id = ?
+                  AND IFNULL(delete_status, 0) = 0
+                """, userId);
+    }
+
+    private long countCurrentCartDistinctProducts(Long userId) {
+        return queryLong("""
+                SELECT COUNT(DISTINCT product_id)
+                FROM oms_cart_item
+                WHERE member_id = ?
+                  AND IFNULL(delete_status, 0) = 0
+                """, userId);
+    }
+
+    private long countMongoDocuments(String collectionName, Long userId, int days) {
+        if (mongoTemplate == null) {
+            return 0L;
+        }
+        return mongoTemplate.count(recentMemberQuery(userId, days), collectionName);
+    }
+
+    private long countMongoDistinctProducts(String collectionName, Long userId, int days) {
+        if (mongoTemplate == null) {
+            return 0L;
+        }
+        return mongoTemplate.findDistinct(recentMemberQuery(userId, days), "productId", collectionName, Long.class).size();
+    }
+
+    private Query recentMemberQuery(Long userId, int days) {
+        Date startTime = Date.from(LocalDateTime.now().minusDays(days).atZone(ZoneId.systemDefault()).toInstant());
+        return new Query()
+                .addCriteria(Criteria.where("memberId").is(userId))
+                .addCriteria(Criteria.where("createTime").gte(startTime));
+    }
+
+    private long queryLong(String sql, Object... args) {
+        Long value = jdbcTemplate.queryForObject(sql, Long.class, args);
+        return value == null ? 0L : value;
+    }
+
+    private List<Map<String, Object>> userEventCategorySummary(Long userId, int days) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        result.addAll(behaviorEventCategorySummary(userId, days, "view", " AND e.product_id IS NOT NULL"));
+        result.addAll(searchEventCategorySummary(userId, days));
+        result.addAll(mongoCollectionCategorySummary("fav", "memberProductCollection", userId, days));
+        result.addAll(cartCategorySummary(userId));
+        result.addAll(orderCategorySummary("order", userId, days, "0,1,2,3"));
+        result.addAll(orderCategorySummary("pay", userId, days, "1,2,3"));
+        return result;
+    }
+
+    private List<Map<String, Object>> behaviorEventCategorySummary(Long userId, int days, String eventType, String extraCondition) {
+        String safeExtraCondition = StringUtils.hasText(extraCondition) ? extraCondition + "\n" : "";
+        return jdbcTemplate.queryForList("""
+                SELECT
+                  ? AS eventType,
+                  COALESCE(c.id, pc.id) AS categoryId,
+                  COALESCE(c.name, pc.name, '\u672a\u8bc6\u522b') AS categoryName,
+                  COUNT(*) AS eventCount,
+                  COUNT(DISTINCT e.product_id) AS productCount
+                FROM user_behavior_event e
+                LEFT JOIN pms_product p ON e.product_id = p.id
+                LEFT JOIN pms_product_category c ON e.category_id = c.id
+                LEFT JOIN pms_product_category pc ON p.product_category_id = pc.id
+                WHERE e.user_id = ?
+                  AND e.event_time >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                  AND e.event_type = ?
+                """ + safeExtraCondition + """
+                GROUP BY COALESCE(c.id, pc.id), COALESCE(c.name, pc.name, '\u672a\u8bc6\u522b')
+                ORDER BY eventCount DESC
+                """, eventType, userId, days, eventType);
+    }
+
+    private List<Map<String, Object>> searchEventCategorySummary(Long userId, int days) {
+        return jdbcTemplate.queryForList("""
+                SELECT
+                  'search' AS eventType,
+                  NULL AS categoryId,
+                  TRIM(e.keyword) AS categoryName,
+                  COUNT(*) AS eventCount,
+                  1 AS productCount
+                FROM user_behavior_event e
+                WHERE e.user_id = ?
+                  AND e.event_time >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                  AND e.event_type = 'search'
+                  AND e.keyword IS NOT NULL
+                  AND TRIM(e.keyword) <> ''
+                GROUP BY TRIM(e.keyword)
+                ORDER BY eventCount DESC, categoryName ASC
+                """, userId, days);
+    }
+
+    private List<Map<String, Object>> cartCategorySummary(Long userId) {
+        return jdbcTemplate.queryForList("""
+                SELECT
+                  'cart' AS eventType,
+                  ci.product_category_id AS categoryId,
+                  COALESCE(c.name, '\u672a\u8bc6\u522b') AS categoryName,
+                  IFNULL(SUM(IFNULL(ci.quantity, 0)), 0) AS eventCount,
+                  COUNT(DISTINCT ci.product_id) AS productCount
+                FROM oms_cart_item ci
+                LEFT JOIN pms_product_category c ON ci.product_category_id = c.id
+                WHERE ci.member_id = ?
+                  AND IFNULL(ci.delete_status, 0) = 0
+                GROUP BY ci.product_category_id, c.name
+                HAVING IFNULL(SUM(IFNULL(ci.quantity, 0)), 0) > 0
+                ORDER BY eventCount DESC
+                """, userId);
+    }
+
+    private List<Map<String, Object>> orderCategorySummary(String eventType, Long userId, int days, String statuses) {
+        return jdbcTemplate.queryForList("""
+                SELECT
+                  ? AS eventType,
+                  oc.categoryId AS categoryId,
+                  COALESCE(c.name, '\u672a\u8bc6\u522b') AS categoryName,
+                  COUNT(*) AS eventCount,
+                  COUNT(*) AS productCount
+                FROM (
+                  SELECT
+                    o.id AS orderId,
+                    MIN(oi.product_category_id) AS categoryId
+                  FROM oms_order o
+                  LEFT JOIN oms_order_item oi ON o.id = oi.order_id
+                  WHERE o.member_id = ?
+                    AND o.create_time >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                    AND IFNULL(o.delete_status, 0) = 0
+                    AND o.status IN (
+                """ + statuses + """
+                    )
+                  GROUP BY o.id
+                ) oc
+                LEFT JOIN pms_product_category c ON oc.categoryId = c.id
+                GROUP BY oc.categoryId, c.name
+                ORDER BY eventCount DESC
+                """, eventType, userId, days);
+    }
+
+    private List<Map<String, Object>> mongoCollectionCategorySummary(String eventType, String collectionName, Long userId, int days) {
+        List<Map<String, Object>> empty = new ArrayList<>();
+        if (mongoTemplate == null) {
+            return empty;
+        }
+        Query query = recentMemberQuery(userId, days);
+        query.fields().include("productId");
+        List<Document> documents = mongoTemplate.find(query, Document.class, collectionName);
+        List<Long> productIds = new ArrayList<>();
+        for (Document document : documents) {
+            Long productId = asLong(document.get("productId"));
+            if (productId != null && !productIds.contains(productId)) {
+                productIds.add(productId);
+            }
+        }
+        if (productIds.isEmpty()) {
+            return empty;
+        }
+        StringBuilder placeholders = new StringBuilder();
+        for (int i = 0; i < productIds.size(); i++) {
+            if (i > 0) {
+                placeholders.append(',');
+            }
+            placeholders.append('?');
+        }
+        List<Object> args = new ArrayList<>();
+        args.add(eventType);
+        args.addAll(productIds);
+        return jdbcTemplate.queryForList("""
+                SELECT
+                  ? AS eventType,
+                  p.product_category_id AS categoryId,
+                  COALESCE(c.name, '\u672a\u8bc6\u522b') AS categoryName,
+                  COUNT(*) AS eventCount,
+                  COUNT(*) AS productCount
+                FROM pms_product p
+                LEFT JOIN pms_product_category c ON p.product_category_id = c.id
+                WHERE p.id IN (
+                """ + placeholders + """
+                )
+                GROUP BY p.product_category_id, c.name
+                ORDER BY eventCount DESC
+                """, args.toArray());
+    }
+
+    private Long asLong(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value == null) {
+            return null;
+        }
+        try {
+            return Long.valueOf(String.valueOf(value));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private List<Map<String, Object>> productEventSummary(Long productId, int days) {

@@ -935,7 +935,7 @@
       .recommend-card { grid-template-columns: 1fr; }
       .recommend-side { justify-items: start; grid-template-columns: auto auto; align-items: center; }
     }
-
+  
 
     /* dashboard-polish-v3: commerce intelligence workspace */
     :root {
@@ -2200,16 +2200,22 @@
       }
     }
 
-    /* similar-recommend-rank-fix: keep TOP badges inside cards so they are not clipped */
+    /* recommend-rank-fix: keep TOP badges inside cards so they are not clipped */
+    #userRecommend .recommend-list,
+    #userRecommendMirror .recommend-list,
     #similarRecommend .recommend-list {
       padding-top: 2px;
     }
 
+    #userRecommend .recommend-card,
+    #userRecommendMirror .recommend-card,
     #similarRecommend .recommend-card {
       overflow: visible;
       padding-top: 34px;
     }
 
+    #userRecommend .recommend-rank,
+    #userRecommendMirror .recommend-rank,
     #similarRecommend .recommend-rank {
       top: 10px;
       left: 12px;

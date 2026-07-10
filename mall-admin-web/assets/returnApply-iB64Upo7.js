@@ -1,0 +1,1 @@
+import{Y as r}from"./index-lN_RrXiT.js";function u(t){return r({url:"/returnApply/list",method:"get",params:t})}function n(t){return r({url:"/returnApply/delete",method:"post",params:t})}function l(t,e){return r({url:"/returnApply/update/status/"+t,method:"post",data:e})}function o(t){return r({url:"/returnApply/"+t,method:"get"})}export{o as a,l as b,u as g,n as r};

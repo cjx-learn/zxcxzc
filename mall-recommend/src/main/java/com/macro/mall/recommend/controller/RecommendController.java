@@ -37,7 +37,7 @@ public class RecommendController {
     }
 
     @GetMapping("/evaluate")
-    public CommonResult<List<Map<String, Object>>> evaluation() {
-        return CommonResult.success(recommendRepository.evaluation());
+    public CommonResult<List<Map<String, Object>>> evaluate() {
+        return CommonResult.success(recommendRepository.evaluate());
     }
 }

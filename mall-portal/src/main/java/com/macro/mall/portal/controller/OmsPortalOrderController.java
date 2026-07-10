@@ -2,6 +2,9 @@ package com.macro.mall.portal.controller;
 
 import com.macro.mall.common.api.CommonPage;
 import com.macro.mall.common.api.CommonResult;
+import com.macro.mall.common.constant.BehaviorEventType;
+import com.macro.mall.model.OmsOrderItem;
+import com.macro.mall.portal.component.BehaviorEventRecorder;
 import com.macro.mall.portal.domain.ConfirmOrderResult;
 import com.macro.mall.portal.domain.OmsOrderDetail;
 import com.macro.mall.portal.domain.OrderParam;
@@ -11,6 +14,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
@@ -28,6 +32,8 @@ import java.util.Map;
 public class OmsPortalOrderController {
     @Autowired
     private OmsPortalOrderService portalOrderService;
+    @Autowired
+    private BehaviorEventRecorder behaviorEventRecorder;
 
     @Operation(summary = "根据购物车信息生成确认单信息")
     @RequestMapping(value = "/generateConfirmOrder", method = RequestMethod.POST)
@@ -40,17 +46,36 @@ public class OmsPortalOrderController {
     @Operation(summary = "根据购物车信息生成订单")
     @RequestMapping(value = "/generateOrder", method = RequestMethod.POST)
     @ResponseBody
-    public CommonResult generateOrder(@RequestBody OrderParam orderParam) {
+    public CommonResult generateOrder(@RequestBody OrderParam orderParam, HttpServletRequest request) {
         Map<String, Object> result = portalOrderService.generateOrder(orderParam);
+        recordOrderItems(result.get("orderItemList"), BehaviorEventType.ORDER, "order_generate", request);
         return CommonResult.success(result, "下单成功");
     }
 
     @Operation(summary = "用户支付成功的回调")
     @RequestMapping(value = "/paySuccess", method = RequestMethod.POST)
     @ResponseBody
-    public CommonResult paySuccess(@RequestParam Long orderId,@RequestParam Integer payType) {
+    public CommonResult paySuccess(@RequestParam Long orderId, @RequestParam Integer payType, HttpServletRequest request) {
         Integer count = portalOrderService.paySuccess(orderId,payType);
+        if (count != null && count > 0) {
+            OmsOrderDetail orderDetail = portalOrderService.detail(orderId);
+            if (orderDetail != null) {
+                recordOrderItems(orderDetail.getOrderItemList(), BehaviorEventType.PAY, "order_pay", request);
+            }
+        }
         return CommonResult.success(count, "支付成功");
+    }
+
+    private void recordOrderItems(Object orderItemList, String eventType, String sourcePage, HttpServletRequest request) {
+        if (!(orderItemList instanceof List<?>)) {
+            return;
+        }
+        for (Object item : (List<?>) orderItemList) {
+            if (item instanceof OmsOrderItem) {
+                OmsOrderItem orderItem = (OmsOrderItem) item;
+                behaviorEventRecorder.record(eventType, orderItem.getProductId(), orderItem.getProductCategoryId(), null, sourcePage, request);
+            }
+        }
     }
 
     @Operation(summary = "自动取消超时订单")

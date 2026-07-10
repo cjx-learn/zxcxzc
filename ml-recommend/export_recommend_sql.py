@@ -36,27 +36,6 @@ def load_recommendations(path, max_users):
     return rows, user_order
 
 
-def build_display_scores(rows, user_mapping):
-    grouped = {}
-    for idx, row in enumerate(rows):
-        local_user_id = user_mapping.get(row["user_id"], row["user_id"])
-        grouped.setdefault(local_user_id, []).append((idx, row))
-
-    display_scores = {}
-    for entries in grouped.values():
-        entries.sort(key=lambda item: int(float(item[1].get("rank_no") or 999999)))
-        raw_scores = [float(row.get("score") or 0) for _, row in entries]
-        min_score = min(raw_scores)
-        max_score = max(raw_scores)
-        for rank_index, (idx, row) in enumerate(entries):
-            if max_score > min_score:
-                normalized = (float(row.get("score") or 0) - min_score) / (max_score - min_score)
-                display_scores[idx] = 0.60 + normalized * 0.38
-            else:
-                display_scores[idx] = max(0.70, 0.98 - rank_index * 0.03)
-    return display_scores
-
-
 def main():
     args = parse_args()
     product_ids = [pid.strip() for pid in args.mall_product_ids.split(",") if pid.strip()]
@@ -74,7 +53,6 @@ def main():
     user_mapping = {}
     if mall_user_ids:
         user_mapping = {user_id: mall_user_ids[idx % len(mall_user_ids)] for idx, user_id in enumerate(user_order)}
-    display_scores = build_display_scores(rows, user_mapping)
 
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
     with open(args.output, "w", encoding="utf-8", newline="\n") as f:
@@ -84,7 +62,7 @@ def main():
         f.write(f"DELETE FROM recommend_result WHERE recommend_type = {sql_string(args.recommend_type)};\n")
         used_products_by_user = {}
         exported_rank_by_user = {}
-        for row_idx, row in enumerate(rows):
+        for row in rows:
             local_user_id = user_mapping.get(row["user_id"], row["user_id"])
             used_products = used_products_by_user.setdefault(local_user_id, set())
             preferred_index = external_items.index(row["external_item_id"]) % len(product_ids)
@@ -102,7 +80,7 @@ def main():
             f.write(
                 "INSERT INTO recommend_result "
                 "(user_id, product_id, recommend_score, rank_no, recommend_type, reason, create_time) VALUES "
-                f"({int(local_user_id)}, {int(product_id)}, {display_scores[row_idx]:.6f}, {exported_rank_by_user[local_user_id]}, "
+                f"({int(local_user_id)}, {int(product_id)}, {float(row['score']):.6f}, {exported_rank_by_user[local_user_id]}, "
                 f"{sql_string(args.recommend_type)}, {sql_string(reason)}, NOW());\n"
             )
     print(f"users={len(user_order)} external_items={len(external_items)} output={args.output}")

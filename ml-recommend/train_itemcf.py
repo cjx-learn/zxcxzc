@@ -19,20 +19,10 @@ def parse_args():
     parser.add_argument("--output", required=True, help="Recommendation CSV output")
     parser.add_argument("--topn", type=int, default=10)
     parser.add_argument("--max-history-per-user", type=int, default=80)
-    parser.add_argument("--train-ratio", type=float, default=1.0, help="Per-user temporal training ratio, e.g. 0.8 for holdout evaluation")
     return parser.parse_args()
 
 
-def training_slice(rows, train_ratio):
-    rows.sort(key=lambda row: int(row["timestamp"]))
-    if train_ratio >= 1.0:
-        return rows
-    split_index = max(1, min(len(rows) - 1, int(math.floor(len(rows) * train_ratio))))
-    return rows[:split_index]
-
-
-def load_user_history(path, max_history_per_user, train_ratio):
-    raw_events = defaultdict(list)
+def load_user_history(path, max_history_per_user):
     user_events = defaultdict(dict)
     item_popularity = Counter()
     item_category = {}
@@ -40,10 +30,6 @@ def load_user_history(path, max_history_per_user, train_ratio):
     with open(path, "r", encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            raw_events[row["user_id"]].append(row)
-
-    for user_id, rows in raw_events.items():
-        for row in training_slice(rows, train_ratio):
             user_id = row["user_id"]
             item_id = row["item_id"]
             category_id = row["category_id"]
@@ -131,7 +117,7 @@ def write_rows(path, rows):
 
 def main():
     args = parse_args()
-    user_events, item_popularity, item_category = load_user_history(args.events, args.max_history_per_user, args.train_ratio)
+    user_events, item_popularity, item_category = load_user_history(args.events, args.max_history_per_user)
     similarities = build_item_similarity(user_events)
     rows = recommend(user_events, similarities, item_popularity, item_category, args.topn)
     write_rows(args.output, rows)

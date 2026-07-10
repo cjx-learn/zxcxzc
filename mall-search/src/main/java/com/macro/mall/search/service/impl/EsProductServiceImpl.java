@@ -8,6 +8,9 @@ import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
 import co.elastic.clients.elasticsearch._types.query_dsl.*;
 import co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders;
 import co.elastic.clients.util.ObjectBuilder;
+import com.macro.mall.mapper.PmsProductCategoryMapper;
+import com.macro.mall.model.PmsProductCategory;
+import com.macro.mall.model.PmsProductCategoryExample;
 import com.macro.mall.search.dao.EsProductDao;
 import com.macro.mall.search.domain.EsProduct;
 import com.macro.mall.search.domain.EsProductRelatedInfo;
@@ -39,6 +42,8 @@ public class EsProductServiceImpl implements EsProductService {
     private EsProductDao productDao;
     @Autowired
     private EsProductRepository productRepository;
+    @Autowired
+    private PmsProductCategoryMapper productCategoryMapper;
     @Autowired
     private ElasticsearchTemplate elasticsearchTemplate;
     @Override
@@ -85,8 +90,7 @@ public class EsProductServiceImpl implements EsProductService {
 
     @Override
     public Page<EsProduct> search(String keyword, Integer pageNum, Integer pageSize) {
-        Pageable pageable = PageRequest.of(pageNum, pageSize);
-        return productRepository.findByNameOrSubTitleOrKeywords(keyword, keyword, keyword, pageable);
+        return search(keyword, null, null, pageNum, pageSize, 0);
     }
 
     @Override
@@ -123,15 +127,29 @@ public class EsProductServiceImpl implements EsProductService {
                     .build());
             functionScoreList.add(new FunctionScore.Builder()
                     .filter(QueryBuilders.match(builder -> builder.field("keywords").query(keyword)))
-                    .weight(2.0)
+                    .weight(4.0)
                     .build());
+            functionScoreList.add(new FunctionScore.Builder()
+                    .filter(QueryBuilders.match(builder -> builder.field("brandName").query(keyword)))
+                    .weight(7.0)
+                    .build());
+            functionScoreList.add(new FunctionScore.Builder()
+                    .filter(QueryBuilders.match(builder -> builder.field("productCategoryName").query(keyword)))
+                    .weight(6.0)
+                    .build());
+            for (Long categoryId : getSearchCategoryIds(keyword)) {
+                functionScoreList.add(new FunctionScore.Builder()
+                        .filter(QueryBuilders.term(builder -> builder.field("productCategoryId").value(categoryId)))
+                        .weight(6.0)
+                        .build());
+            }
             FunctionScoreQuery.Builder functionScoreQueryBuilder = QueryBuilders.functionScore()
                     .functions(functionScoreList)
                     .scoreMode(FunctionScoreMode.Sum)
                     .minScore(2.0);
             nativeQueryBuilder.withQuery(builder -> builder.functionScore(functionScoreQueryBuilder.build()));
         }
-        //排序
+        //??
         if(sort==1){
             //按新品从新到旧
             nativeQueryBuilder.withSort(Sort.by(Sort.Order.desc("id")));
@@ -155,6 +173,25 @@ public class EsProductServiceImpl implements EsProductService {
         }
         List<EsProduct> searchProductList = searchHits.stream().map(SearchHit::getContent).collect(Collectors.toList());
         return new PageImpl<>(searchProductList,pageable,searchHits.getTotalHits());
+    }
+
+    private List<Long> getSearchCategoryIds(String keyword) {
+        PmsProductCategoryExample example = new PmsProductCategoryExample();
+        List<PmsProductCategory> allList = productCategoryMapper.selectByExample(example);
+        Set<Long> categoryIds = allList.stream()
+                .filter(item -> item.getName() != null && item.getName().contains(keyword))
+                .map(PmsProductCategory::getId)
+                .collect(Collectors.toSet());
+        boolean changed;
+        do {
+            changed = false;
+            for (PmsProductCategory item : allList) {
+                if (categoryIds.contains(item.getParentId()) && categoryIds.add(item.getId())) {
+                    changed = true;
+                }
+            }
+        } while (changed);
+        return new ArrayList<>(categoryIds);
     }
 
     @Override

@@ -51,30 +51,16 @@ def parse_args():
     parser.add_argument("--negative-ratio", type=int, default=3)
     parser.add_argument("--topn", type=int, default=10)
     parser.add_argument("--seed", type=int, default=20260707)
-    parser.add_argument("--train-ratio", type=float, default=1.0, help="Per-user temporal training ratio, e.g. 0.8 for holdout evaluation")
     return parser.parse_args()
 
 
-def training_slice(rows, train_ratio):
-    rows.sort(key=lambda row: int(row["timestamp"]))
-    if train_ratio >= 1.0:
-        return rows
-    split_index = max(1, min(len(rows) - 1, int(len(rows) * train_ratio)))
-    return rows[:split_index]
-
-
-def load_events(path, train_ratio):
-    raw_events = defaultdict(list)
+def load_events(path):
     user_positive = defaultdict(dict)
     item_category = {}
     item_popularity = Counter()
     with open(path, "r", encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            raw_events[row["user_id"]].append(row)
-
-    for rows in raw_events.values():
-        for row in training_slice(rows, train_ratio):
             user_id = row["user_id"]
             item_id = row["item_id"]
             event_type = row["event_type"]
@@ -189,7 +175,7 @@ def main():
     random.seed(args.seed)
     torch.manual_seed(args.seed)
 
-    user_positive, item_category, item_popularity = load_events(args.events, args.train_ratio)
+    user_positive, item_category, item_popularity = load_events(args.events)
     users, items, user_to_idx, item_to_idx, idx_to_user, idx_to_item = build_indices(user_positive, item_popularity)
     tensors = build_training_tensors(
         user_positive=user_positive,

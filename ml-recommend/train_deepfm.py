@@ -62,7 +62,6 @@ def parse_args():
     parser.add_argument("--negative-ratio", type=int, default=3)
     parser.add_argument("--topn", type=int, default=10)
     parser.add_argument("--seed", type=int, default=20260707)
-    parser.add_argument("--train-ratio", type=float, default=1.0, help="Per-user temporal training ratio, e.g. 0.8 for holdout evaluation")
     return parser.parse_args()
 
 
@@ -78,16 +77,7 @@ def event_context(timestamp):
     return dt.hour, dt.weekday()
 
 
-def training_slice(rows, train_ratio):
-    rows.sort(key=lambda row: int(row["timestamp"]))
-    if train_ratio >= 1.0:
-        return rows
-    split_index = max(1, min(len(rows) - 1, int(len(rows) * train_ratio)))
-    return rows[:split_index]
-
-
-def load_events(path, train_ratio):
-    raw_events = defaultdict(list)
+def load_events(path):
     user_positive = defaultdict(dict)
     user_strength = Counter()
     item_strength = Counter()
@@ -97,10 +87,6 @@ def load_events(path, train_ratio):
     with open(path, "r", encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            raw_events[row["user_id"]].append(row)
-
-    for rows in raw_events.values():
-        for row in training_slice(rows, train_ratio):
             user_id = row["user_id"]
             item_id = row["item_id"]
             category_id = row["category_id"]
@@ -238,7 +224,7 @@ def main():
     random.seed(args.seed)
     torch.manual_seed(args.seed)
 
-    user_positive, user_strength, item_strength, item_category, item_context = load_events(args.events, args.train_ratio)
+    user_positive, user_strength, item_strength, item_category, item_context = load_events(args.events)
     maps, users, items = build_feature_maps(user_positive, item_strength, item_category)
     tensors = build_training_tensors(
         user_positive=user_positive,

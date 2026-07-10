@@ -43,21 +43,28 @@ public class PmsPortalProductServiceImpl implements PmsPortalProductService {
 
     @Override
     public List<PmsProduct> search(String keyword, Long brandId, Long productCategoryId, Integer pageNum, Integer pageSize, Integer sort) {
+        List<Long> searchCategoryIds = java.util.Collections.emptyList();
+        if (StrUtil.isNotEmpty(keyword)) {
+            searchCategoryIds = getSearchCategoryIds(keyword.trim());
+        }
         PageHelper.startPage(pageNum, pageSize);
         PmsProductExample example = new PmsProductExample();
-        PmsProductExample.Criteria criteria = example.createCriteria();
-        criteria.andDeleteStatusEqualTo(0);
         if (StrUtil.isNotEmpty(keyword)) {
-            criteria.andNameLike("%" + keyword + "%");
+            String likeKeyword = "%" + keyword.trim() + "%";
+            addSearchCriteria(example, brandId, productCategoryId, likeKeyword, "name");
+            addSearchCriteria(example, brandId, productCategoryId, likeKeyword, "keywords");
+            addSearchCriteria(example, brandId, productCategoryId, likeKeyword, "subTitle");
+            addSearchCriteria(example, brandId, productCategoryId, likeKeyword, "brandName");
+            addSearchCriteria(example, brandId, productCategoryId, likeKeyword, "productCategoryName");
+            addCategorySearchCriteria(example, brandId, productCategoryId, searchCategoryIds);
+        } else {
+            PmsProductExample.Criteria criteria = example.createCriteria();
+            applyVisibleCriteria(criteria, brandId, productCategoryId);
         }
-        if (brandId != null) {
-            criteria.andBrandIdEqualTo(brandId);
-        }
-        if (productCategoryId != null) {
-            criteria.andProductCategoryIdEqualTo(productCategoryId);
-        }
-        //1->按新品；2->按销量；3->价格从低到高；4->价格从高到低
-        if (sort == 1) {
+        //1->????2->????3->???????4->??????
+        if (sort == 0) {
+            example.setOrderByClause("sort desc, id desc");
+        } else if (sort == 1) {
             example.setOrderByClause("id desc");
         } else if (sort == 2) {
             example.setOrderByClause("sale desc");
@@ -68,6 +75,73 @@ public class PmsPortalProductServiceImpl implements PmsPortalProductService {
         }
         return productMapper.selectByExample(example);
     }
+
+    private void addSearchCriteria(PmsProductExample example, Long brandId, Long productCategoryId, String likeKeyword, String field) {
+        PmsProductExample.Criteria criteria = example.or();
+        applyVisibleCriteria(criteria, brandId, productCategoryId);
+        if ("keywords".equals(field)) {
+            criteria.andKeywordsLike(likeKeyword);
+        } else if ("subTitle".equals(field)) {
+            criteria.andSubTitleLike(likeKeyword);
+        } else if ("brandName".equals(field)) {
+            criteria.andBrandNameLike(likeKeyword);
+        } else if ("productCategoryName".equals(field)) {
+            criteria.andProductCategoryNameLike(likeKeyword);
+        } else {
+            criteria.andNameLike(likeKeyword);
+        }
+    }
+
+    private void addCategorySearchCriteria(PmsProductExample example, Long brandId, Long productCategoryId, List<Long> categoryIds) {
+        if (categoryIds.isEmpty()) {
+            return;
+        }
+        PmsProductExample.Criteria criteria = example.or();
+        criteria.andDeleteStatusEqualTo(0);
+        criteria.andPublishStatusEqualTo(1);
+        if (brandId != null) {
+            criteria.andBrandIdEqualTo(brandId);
+        }
+        if (productCategoryId != null) {
+            if (!categoryIds.contains(productCategoryId)) {
+                return;
+            }
+            criteria.andProductCategoryIdEqualTo(productCategoryId);
+        } else {
+            criteria.andProductCategoryIdIn(categoryIds);
+        }
+    }
+
+    private List<Long> getSearchCategoryIds(String keyword) {
+        PmsProductCategoryExample example = new PmsProductCategoryExample();
+        List<PmsProductCategory> allList = productCategoryMapper.selectByExample(example);
+        java.util.Set<Long> categoryIds = allList.stream()
+                .filter(item -> item.getName() != null && item.getName().contains(keyword))
+                .map(PmsProductCategory::getId)
+                .collect(Collectors.toSet());
+        boolean changed;
+        do {
+            changed = false;
+            for (PmsProductCategory item : allList) {
+                if (categoryIds.contains(item.getParentId()) && categoryIds.add(item.getId())) {
+                    changed = true;
+                }
+            }
+        } while (changed);
+        return new java.util.ArrayList<>(categoryIds);
+    }
+
+    private void applyVisibleCriteria(PmsProductExample.Criteria criteria, Long brandId, Long productCategoryId) {
+        criteria.andDeleteStatusEqualTo(0);
+        criteria.andPublishStatusEqualTo(1);
+        if (brandId != null) {
+            criteria.andBrandIdEqualTo(brandId);
+        }
+        if (productCategoryId != null) {
+            criteria.andProductCategoryIdEqualTo(productCategoryId);
+        }
+    }
+
 
     @Override
     public List<PmsProductCategoryNode> categoryTreeList() {

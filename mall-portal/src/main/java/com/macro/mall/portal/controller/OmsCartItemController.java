@@ -1,7 +1,9 @@
 package com.macro.mall.portal.controller;
 
 import com.macro.mall.common.api.CommonResult;
+import com.macro.mall.common.constant.BehaviorEventType;
 import com.macro.mall.model.OmsCartItem;
+import com.macro.mall.portal.component.BehaviorEventRecorder;
 import com.macro.mall.portal.domain.CartProduct;
 import com.macro.mall.portal.domain.CartPromotionItem;
 import com.macro.mall.portal.service.OmsCartItemService;
@@ -9,6 +11,7 @@ import com.macro.mall.portal.service.UmsMemberService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
@@ -27,13 +30,16 @@ public class OmsCartItemController {
     private OmsCartItemService cartItemService;
     @Autowired
     private UmsMemberService memberService;
+    @Autowired
+    private BehaviorEventRecorder behaviorEventRecorder;
 
     @Operation(summary = "添加商品到购物车")
     @RequestMapping(value = "/add", method = RequestMethod.POST)
     @ResponseBody
-    public CommonResult add(@RequestBody OmsCartItem cartItem) {
+    public CommonResult add(@RequestBody OmsCartItem cartItem, HttpServletRequest request) {
         int count = cartItemService.add(cartItem);
         if (count > 0) {
+            behaviorEventRecorder.record(BehaviorEventType.CART, cartItem.getProductId(), cartItem.getProductCategoryId(), null, "cart_add", request);
             return CommonResult.success(count);
         }
         return CommonResult.failed();

@@ -4,15 +4,20 @@ spring:
   application:
     name: mall-analytics
   datasource:
-    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/mall?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false}
-    username: ${MYSQL_USERNAME:root}
-    password: ${MYSQL_PASSWORD:root}
+    url: jdbc:mysql://localhost:3306/mall?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false
+    username: root
+    password: root
+  data:
+    mongodb:
+      host: localhost
+      port: 27017
+      database: mall-port
   rabbitmq:
-    host: ${RABBITMQ_HOST:localhost}
-    port: ${RABBITMQ_PORT:5672}
-    virtual-host: ${RABBITMQ_VHOST:/mall}
-    username: ${RABBITMQ_USERNAME:mall}
-    password: ${RABBITMQ_PASSWORD:mall}
+    host: localhost
+    port: 5672
+    virtual-host: /mall
+    username: mall
+    password: mall
 management:
   endpoints:
     web:

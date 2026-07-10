@@ -1,0 +1,10 @@
+user_id,external_item_id,category_id,score,rank_no,recommend_type,reason
+1,103,12,0.951747,1,model_itemcf,与用户历史商品 100 协同相似
+1,104,12,0.547534,2,model_itemcf,与用户历史商品 100 协同相似
+2,102,11,0.874550,1,model_itemcf,与用户历史商品 103 协同相似
+2,104,12,0.357515,2,model_itemcf,与用户历史商品 103 协同相似
+3,100,10,1.670790,1,model_itemcf,与用户历史商品 102 协同相似
+3,101,10,0.511479,2,model_itemcf,与用户历史商品 102 协同相似
+4,103,12,0.698077,1,model_itemcf,与用户历史商品 100 协同相似
+4,102,11,0.478806,2,model_itemcf,与用户历史商品 100 协同相似
+4,101,10,0.430940,3,model_itemcf,与用户历史商品 100 协同相似
