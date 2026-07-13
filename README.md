@@ -1,176 +1,560 @@
-# mall-swarm
+# 基于电商用户行为的商品推荐与分析系统
 
-<p>
-  <a href="#公众号"><img src="http://macro-oss.oss-cn-shenzhen.aliyuncs.com/mall/badge/%E5%85%AC%E4%BC%97%E5%8F%B7-macrozheng-blue.svg" alt="公众号"></a>
-  <a href="#公众号"><img src="http://macro-oss.oss-cn-shenzhen.aliyuncs.com/mall/badge/%E4%BA%A4%E6%B5%81-%E5%BE%AE%E4%BF%A1%E7%BE%A4-2BA245.svg" alt="交流"></a>
-  <a href="https://github.com/macrozheng/mall-learning"><img src="http://macro-oss.oss-cn-shenzhen.aliyuncs.com/mall/badge/%E5%AD%A6%E4%B9%A0%E6%95%99%E7%A8%8B-mall--learning-green.svg" alt="学习教程"></a>
-  <a href="https://github.com/macrozheng/mall"><img src="http://macro-oss.oss-cn-shenzhen.aliyuncs.com/mall/badge/%E5%90%8E%E5%8F%B0%E9%A1%B9%E7%9B%AE-mall-blue.svg" alt="后台项目"></a>
-  <a href="https://github.com/macrozheng/mall-admin-web"><img src="http://macro-oss.oss-cn-shenzhen.aliyuncs.com/mall/badge/%E5%89%8D%E7%AB%AF%E9%A1%B9%E7%9B%AE-mall--admin--web-green.svg" alt="前端项目"></a>
-  <a href="https://github.com/macrozheng/mall-app-web"><img src="https://macro-oss.oss-cn-shenzhen.aliyuncs.com/mall/badge/%E5%89%8D%E5%8F%B0%E5%95%86%E5%9F%8E%E9%A1%B9%E7%9B%AE-mall--app--web-green.svg" alt="前台商城项目"></a>
-  <a href="https://gitee.com/macrozheng/mall-swarm"><img src="http://macro-oss.oss-cn-shenzhen.aliyuncs.com/mall/badge/%E7%A0%81%E4%BA%91-%E9%A1%B9%E7%9B%AE%E5%9C%B0%E5%9D%80-orange.svg" alt="码云"></a>
-</p>
+本项目基于 [`macrozheng/mall-swarm`](https://github.com/macrozheng/mall-swarm) 二次开发，在微服务商城基础上增加了用户行为采集、用户与商品画像、热门/规则/ItemCF/NCF/DeepFM 推荐、离线评估、ECharts 分析看板和 H5 推荐展示。
 
-## 友情提示
+本文档以 **Ubuntu 22.04、4 核 16 GB、100 GB 磁盘**为参考环境，包含从源码部署完整系统的步骤。所有命令默认使用 `root` 或具有 `sudo` 权限的用户执行。
 
-> 1. **快速体验项目**：[在线访问地址](https://cloud.macrozheng.com/admin/index.html) 。
-> 2. **全套学习教程**：[《mall-swarm微服务学习教程》](https://cloud.macrozheng.com) 。
-> 3. **视频教程**：[《mall-swarm视频教程》](https://cloud.macrozheng.com/video/) 。
-> 4. **Spring Cloud全套教程**：[《SpringCloud学习教程》](https://github.com/macrozheng/springcloud-learning) 。
-> 5. **分支说明**：`master`分支基于Spring Cloud 2025+Spring Boot 3.5，`dev-v2`分支基于Spring Cloud 2021+Spring Boot 2.7。
+## 在线演示
 
-## 项目简介
+| 模块 | 地址 | 默认账号 |
+| --- | --- | --- |
+| 管理后台 | [http://182.92.113.19/](http://182.92.113.19/) | `admin / macro123` |
+| 用户端 H5 | [http://182.92.113.19/app/](http://182.92.113.19/app/) | 可注册或登录 |
+| 数据分析看板 | [http://182.92.113.19/dashboard/](http://182.92.113.19/dashboard/) | 无独立登录 |
+| 兼容入口 | [http://182.92.113.19:8201/](http://182.92.113.19:8201/) | 与 80 端口内容相同 |
 
-`mall-swarm`是一套微服务商城系统，采用了 Spring Cloud 2025 & Alibaba、Spring Boot 3.5、Sa-Token、MyBatis、Elasticsearch、Docker、Kubernetes等核心技术，同时提供了基于Vue的管理后台方便快速搭建系统。`mall-swarm`在电商业务的基础集成了注册中心、配置中心、监控中心、网关等系统功能。文档齐全，附带全套Spring Cloud教程。
+首次部署后请立即修改默认管理密码。仓库和本文档不保存云服务器、数据库或对象存储的生产密码。
 
-## 项目演示
+## 核心功能
 
-### 后台管理系统
+- 商城后台、商品、会员、订单、购物车、搜索等基础电商功能。
+- 采集 `view/search/fav/cart/order/pay` 行为，通过 RabbitMQ 异步写入 MySQL。
+- 基于 RFM、行为频次、消费金额构建用户画像和活跃用户排行。
+- 聚合商品热度、转化率和偏好分类，构建商品画像。
+- 提供热门推荐、规则推荐、相似商品、ItemCF、NCF 和 DeepFM 推荐。
+- 使用时间切分完成 HitRate、Precision、Recall、NDCG、Coverage 等离线评估。
+- 在管理看板展示用户分析、商品分析、推荐结果和算法评估。
 
-前端项目`mall-admin-web`地址：https://github.com/macrozheng/mall-admin-web
+## 数据链路
 
-项目演示地址： [https://www.macrozheng.com/admin/index.html](https://www.macrozheng.com/admin/index.html)
+在线链路：
 
-![后台管理系统功能演示](./document/resource/mall_admin_show.png)
-
-### 前台商城系统
-
-前端项目`mall-app-web`地址：https://github.com/macrozheng/mall-app-web
-
-项目演示地址（将浏览器切换为手机模式效果更佳）：[https://www.macrozheng.com/app/](https://www.macrozheng.com/app/)
-
-![前台商城系统功能演示](./document/resource/re_mall_app_show.jpg)
-
-## 项目架构
-
-### 系统架构
-
-![系统架构图](./document/resource/mall_micro_service_arch.jpg)
-
-### 业务架构
-
-![业务架构图](./document/resource/re_mall_business_arch.jpg)
-
-### 组织结构
-
-``` lua
-mall
-├── mall-common -- 工具类及通用代码模块
-├── mall-mbg -- MyBatisGenerator生成的数据库操作代码模块
-├── mall-auth -- 基于Spring Security Oauth2的统一的认证中心
-├── mall-gateway -- 基于Spring Cloud Gateway的微服务API网关服务
-├── mall-monitor -- 基于Spring Boot Admin的微服务监控中心
-├── mall-admin -- 后台管理系统服务
-├── mall-search -- 基于Elasticsearch的商品搜索系统服务
-├── mall-portal -- 移动端商城系统服务
-├── mall-demo -- 微服务远程调用测试服务
-└── config -- 配置中心存储的配置
+```text
+H5 用户行为
+  -> Nginx / Spring Cloud Gateway
+  -> mall-analytics 接收与校验
+  -> RabbitMQ 消息队列
+  -> MySQL user_behavior_event
+  -> SQL 聚合 user_profile / product_profile / user_product_score
+  -> 热门推荐与规则推荐
+  -> MySQL recommend_result
+  -> mall-recommend 推荐接口
+  -> H5 / ECharts 看板
 ```
 
-## 技术选型
+离线链路：
 
-### 后端技术
+```text
+淘宝 UserBehavior.csv
+  -> Python / Pandas 抽样清洗
+  -> 每个用户按时间进行 80% 训练、20% 测试切分
+  -> Python ItemCF + PyTorch NCF / DeepFM
+  -> TopN 推荐、离线评估、ID 映射和分数归一化
+  -> SQL 批量导入 recommend_result / recommend_evaluation
+  -> 在线推荐接口读取预计算结果
+```
 
-| 技术                   | 说明                 | 官网                                                 |
-| ---------------------- | -------------------- | ---------------------------------------------------- |
-| Spring Cloud           | 微服务框架           | https://spring.io/projects/spring-cloud              |
-| Spring Cloud Alibaba   | 微服务框架           | https://github.com/alibaba/spring-cloud-alibaba      |
-| Spring Boot            | 容器+MVC框架         | https://spring.io/projects/spring-boot               |
-| Sa-Token               | 认证和授权框架       | https://github.com/dromara/Sa-Token                   |
-| MyBatis                | ORM框架              | http://www.mybatis.org/mybatis-3/zh/index.html       |
-| MyBatisGenerator       | 数据层代码生成       | http://www.mybatis.org/generator/index.html          |
-| PageHelper             | MyBatis物理分页插件  | http://git.oschina.net/free/Mybatis_PageHelper       |
-| Knife4j                | 文档生产工具         | https://github.com/xiaoymin/swagger-bootstrap-ui     |
-| Elasticsearch          | 搜索引擎             | https://github.com/elastic/elasticsearch             |
-| RabbitMq               | 消息队列             | https://www.rabbitmq.com/                            |
-| Redis                  | 分布式缓存           | https://redis.io/                                    |
-| MongoDb                | NoSql数据库          | https://www.mongodb.com/                             |
-| Docker                 | 应用容器引擎         | https://www.docker.com/                              |
-| Druid                  | 数据库连接池         | https://github.com/alibaba/druid                     |
-| OSS                    | 对象存储             | https://github.com/aliyun/aliyun-oss-java-sdk        |
-| MinIO                  | 对象存储             | https://github.com/minio/minio                       |
-| LogStash               | 日志收集             | https://github.com/logstash/logstash-logback-encoder |
-| Lombok                 | 简化对象封装工具     | https://github.com/rzwitserloot/lombok               |
-| Seata                  | 全局事务管理框架     | https://github.com/seata/seata                       |
-| Portainer              | 可视化Docker容器管理 | https://github.com/portainer/portainer               |
-| Jenkins                | 自动化部署工具       | https://github.com/jenkinsci/jenkins                 |
-| Kubernetes             | 应用容器管理平台     | https://kubernetes.io/                               |
+当前在线服务通过 JDBC 查询 MySQL 中的预计算推荐结果，不在请求时加载 `.pt` 模型实时推理。项目当前未使用 Spark、Streamlit、DIN、DIEN 或 GNN。
 
-### 前端技术
+## 技术栈
 
-| 技术       | 说明                  | 官网                           |
-| ---------- | --------------------- | ------------------------------ |
-| Vue        | 前端框架              | https://vuejs.org/             |
-| Vue-router | 路由框架              | https://router.vuejs.org/      |
-| Vuex       | 全局状态管理框架      | https://vuex.vuejs.org/        |
-| Element    | 前端UI框架            | https://element.eleme.io/      |
-| Axios      | 前端HTTP框架          | https://github.com/axios/axios |
-| v-charts   | 基于Echarts的图表框架 | https://v-charts.js.org/       |
+| 层次 | 技术 |
+| --- | --- |
+| 后端 | Java 17、Spring Boot 3.5、Spring Cloud 2025、Spring Cloud Alibaba、MyBatis、Sa-Token |
+| 数据组件 | MySQL 5.7、Redis 7、MongoDB 4、RabbitMQ 3.9、Elasticsearch 7.17、MinIO、Nacos 2.1 |
+| 推荐训练 | Python 3、Pandas、NumPy、PyTorch、ItemCF、NCF、DeepFM |
+| 前端与展示 | Vue 构建产物、H5、ECharts、Nginx |
+| 部署 | Docker Compose、Maven、Nginx、Linux `nohup` |
 
-### 移动端技术
+Redis 在当前实现中用于管理员/会员缓存、验证码、网关权限资源映射和订单编号自增，不缓存 `recommend_result`。
 
-| 技术         | 说明             | 官网                                    |
-| ------------ | ---------------- | --------------------------------------- |
-| Vue          | 核心前端框架     | https://vuejs.org                       |
-| Vuex         | 全局状态管理框架 | https://vuex.vuejs.org                  |
-| uni-app      | 移动端前端框架   | https://uniapp.dcloud.io                |
-| mix-mall     | 电商项目模板     | https://ext.dcloud.net.cn/plugin?id=200 |
-| luch-request | HTTP请求框架     | https://github.com/lei-mu/luch-request  |
+## 项目目录
 
-## 环境搭建
+```text
+mall-swarm/
+├── config/                 # 原项目 Nacos 开发/生产配置
+├── dashboard/              # ECharts 用户行为与推荐分析看板
+├── data-analysis/          # 用户画像、商品画像、热门/规则推荐 SQL
+├── deploy/
+│   ├── infra/              # MySQL、Redis、RabbitMQ 等 Docker Compose
+│   ├── nacos/              # 部署时导入 Nacos 的生产配置
+│   └── logback-console.xml # 云服务器日志配置
+├── document/
+│   ├── sql/                # 商城初始化 SQL、分析扩展表 SQL、演示数据
+│   ├── docker/             # 原项目 Docker 部署资料
+│   └── resource/           # 架构图和项目截图
+├── mall-admin/             # 管理后台接口服务，默认端口 8080
+├── mall-admin-web/         # 已构建的管理后台静态文件
+├── mall-analytics/         # 行为采集、画像与分析服务，端口 8206
+├── mall-app-web/           # 已构建的用户端 H5 静态文件
+├── mall-auth/              # 认证服务，默认端口 8401
+├── mall-common/            # 通用代码
+├── mall-demo/              # 微服务调用示例，默认端口 8082
+├── mall-gateway/           # API 网关，部署时使用端口 8202
+├── mall-mbg/               # MyBatis Generator 模型与 Mapper
+├── mall-monitor/           # Spring Boot Admin 监控，默认端口 8101
+├── mall-portal/            # 用户端商城接口，默认端口 8085
+├── mall-recommend/         # 推荐查询、相似商品与评估接口，端口 8207
+├── mall-search/            # Elasticsearch 商品搜索服务，默认端口 8081
+├── ml-recommend/           # 数据抽样、模型训练、评估和推荐 SQL 导出
+├── pom.xml                 # Maven 多模块入口
+└── README.md
+```
 
-### 开发环境
+## 部署前准备
 
-| 工具          | 版本号 | 下载                                                         |
-| ------------- | ------ | ------------------------------------------------------------ |
-| JDK           | 17     | https://www.oracle.com/cn/java/technologies/downloads/#java17 |
-| Mysql         | 5.7    | https://www.mysql.com/                                       |
-| Redis         | 7.0    | https://redis.io/download                                    |
-| Elasticsearch | 7.17.3 | https://www.elastic.co/cn/downloads/elasticsearch            |
-| Kibana        | 7.17.3 | https://www.elastic.co/cn/downloads/kibana                   |
-| Logstash      | 7.17.3 | https://www.elastic.co/cn/downloads/logstash                 |
-| MongoDb       | 5.0    | https://www.mongodb.com/download-center                      |
-| RabbitMq      | 3.10.5 | http://www.rabbitmq.com/download.html                        |
-| nginx         | 1.22   | http://nginx.org/en/download.html                            |
+### 1. 服务器要求
 
-### 搭建步骤
+- 推荐：Ubuntu 22.04、4C16G、100 GB SSD。
+- 最低演示配置：4C8G，需要降低 Elasticsearch 和 Java 堆内存。
+- 云安全组开放 `22/tcp` 和 `80/tcp`；需要兼容入口时再开放 `8201/tcp`。
+- 不要向公网开放 `3306/6379/5672/8848/9000/9200/27017`。
 
-- Windows环境搭建请参考：[mall-swarm项目后端开发环境搭建](https://cloud.macrozheng.com/start/mall_swarm_deploy_windows.html);
-- `mall-admin-web`项目的安装及部署请参考：[mall-swarm前端开发环境搭建](https://cloud.macrozheng.com/start/mall_swarm_deploy_windows_web.html);
+### 2. 安装软件
 
-## 运行效果展示
+```bash
+apt-get update
+apt-get install -y git openjdk-17-jdk maven nginx curl python3 python3-venv
 
-- 查看注册中心注册服务信息，访问地址：http://192.168.3.101:8848/nacos/
+curl -fsSL https://get.docker.com | sh
+systemctl enable --now docker nginx
+docker --version
+docker compose version
+java -version
+mvn -version
+```
 
-![](./document/resource/re_mall_swarm_run_01.png)
+如果 `docker compose version` 不可用，安装 Compose 插件：
 
-- 监控中心应用信息，访问地址：http://192.168.3.101:8101
+```bash
+apt-get install -y docker-compose-plugin
+```
 
-![](./document/resource/re_mall_swarm_run_02.png)
+### 3. 获取代码并设置变量
 
-![](./document/resource/re_mall_swarm_run_03.png)
+```bash
+git clone -b master https://github.com/cjx-learn/zxcxzc.git /opt/mall-swarm
+cd /opt/mall-swarm
 
-- API文档信息，访问地址：http://192.168.3.101:8201
+export SERVER_IP='你的公网IP'
+export DB_ROOT_PASSWORD='设置一个强MySQLRoot密码'
+export DB_APP_PASSWORD='设置一个强业务数据库密码'
+export MINIO_PASSWORD='设置一个强MinIO密码'
+```
 
-![](./document/resource/re_mall_swarm_run_04.png)
+以下命令仅修改服务器工作副本，不要把替换后的密码提交到 Git：
 
-- 日志收集系统信息，访问地址：http://192.168.3.101:5601
+```bash
+sed -i "s/MYSQL_ROOT_PASSWORD: root/MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}/" deploy/infra/docker-compose.yml
+sed -i "s/MINIO_ROOT_PASSWORD: minioadmin/MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}/" deploy/infra/docker-compose.yml
+sed -i "s/password: 123456/password: ${DB_APP_PASSWORD}/" deploy/nacos/mall-*-prod.yaml
+sed -i "s/secretKey: minioadmin/secretKey: ${MINIO_PASSWORD}/" deploy/nacos/mall-admin-prod.yaml
+```
 
-![](./document/resource/re_mall_swarm_run_05.png)
+## 完整部署步骤
 
-- 使用Kubernetes部署后项目运行状态，访问地址：http://192.168.3.101:30880
+### 1. 启动基础组件
 
-![](document/resource/re_mall_swarm_run_06.png)
+Elasticsearch 启动前需要调整内核参数：
 
-![](document/resource/re_mall_swarm_run_07.png)
+```bash
+sysctl -w vm.max_map_count=262144
+grep -q '^vm.max_map_count=' /etc/sysctl.conf || echo 'vm.max_map_count=262144' >> /etc/sysctl.conf
 
-## 公众号
+mkdir -p /mydata/{mysql/{data,conf,log},redis/data,rabbitmq/{data,log},mongo/db,elasticsearch/{data,plugins},minio/data,nacos/logs}
+chmod 777 /mydata/elasticsearch/data
 
-加微信群交流，关注公众号「**macrozheng**」，回复「**加群**」即可。
+docker compose -f deploy/infra/docker-compose.yml up -d
+docker compose -f deploy/infra/docker-compose.yml ps
+```
 
-![公众号图片](http://macro-oss.oss-cn-shenzhen.aliyuncs.com/mall/banner/qrcode_for_macrozheng_258.jpg)
+等待容器完成初始化：
 
-## 许可证
+```bash
+until docker exec mysql mysqladmin ping -uroot -p"${DB_ROOT_PASSWORD}" --silent; do sleep 3; done
+until curl -fsS http://127.0.0.1:8848/nacos/ >/dev/null; do sleep 3; done
+until curl -fsS http://127.0.0.1:9200 >/dev/null; do sleep 3; done
+```
 
-[Apache License 2.0](https://github.com/macrozheng/mall-swarm/blob/master/LICENSE)
+### 2. 初始化 MySQL
 
-Copyright (c) 2018-2026 macrozheng
+导入商城基础表、行为分析与推荐扩展表，并创建后端使用的数据库账号：
+
+```bash
+docker exec -i mysql mysql --default-character-set=utf8mb4 -uroot -p"${DB_ROOT_PASSWORD}" mall < document/sql/mall.sql
+docker exec -i mysql mysql --default-character-set=utf8mb4 -uroot -p"${DB_ROOT_PASSWORD}" mall < document/sql/analytics_tables.sql
+
+docker exec -i mysql mysql -uroot -p"${DB_ROOT_PASSWORD}" <<SQL
+CREATE USER IF NOT EXISTS 'reader'@'%' IDENTIFIED BY '${DB_APP_PASSWORD}';
+ALTER USER 'reader'@'%' IDENTIFIED BY '${DB_APP_PASSWORD}';
+GRANT ALL PRIVILEGES ON mall.* TO 'reader'@'%';
+FLUSH PRIVILEGES;
+SQL
+```
+
+需要课程演示行为时，可选导入种子数据并构建画像与推荐：
+
+```bash
+docker exec -i mysql mysql --default-character-set=utf8mb4 -uroot -p"${DB_ROOT_PASSWORD}" mall < document/sql/demo_behavior_seed.sql
+docker exec -i mysql mysql --default-character-set=utf8mb4 -uroot -p"${DB_ROOT_PASSWORD}" mall < data-analysis/build_profiles.sql
+docker exec -i mysql mysql --default-character-set=utf8mb4 -uroot -p"${DB_ROOT_PASSWORD}" mall < data-analysis/build_recommend_result.sql
+```
+
+### 3. 初始化 MinIO
+
+创建 `mall` 存储桶并允许公开读取商品图片：
+
+```bash
+docker run --rm --network host --entrypoint /bin/sh minio/mc -c \
+  "mc alias set local http://127.0.0.1:9000 minioadmin '${MINIO_PASSWORD}' && \
+   mc mb --ignore-existing local/mall && \
+   mc anonymous set download local/mall"
+```
+
+### 4. 导入 Nacos 生产配置
+
+Java 服务运行在宿主机，而 Nacos 容器名为 `nacos-registry`。加入本机解析后批量发布配置：
+
+```bash
+grep -q 'nacos-registry' /etc/hosts || echo '127.0.0.1 nacos-registry' >> /etc/hosts
+
+for file in deploy/nacos/*.yaml; do
+  data_id=$(basename "$file")
+  curl -fsS -X POST 'http://127.0.0.1:8848/nacos/v1/cs/configs' \
+    --data-urlencode "dataId=${data_id}" \
+    --data-urlencode 'group=DEFAULT_GROUP' \
+    --data-urlencode 'type=yaml' \
+    --data-urlencode "content@${file}"
+  echo " imported ${data_id}"
+done
+```
+
+可访问 `http://127.0.0.1:8848/nacos/` 检查配置。Nacos 只绑定回环地址，远程检查请使用 SSH 端口转发。
+
+### 5. 构建后端
+
+```bash
+cd /opt/mall-swarm
+MAVEN_OPTS='-Xms256m -Xmx2g' mvn clean package -DskipTests
+mkdir -p logs run
+```
+
+确认以下核心 JAR 已生成：
+
+```bash
+find mall-* -path '*/target/*.jar' -type f -printf '%p\n' | sort
+```
+
+### 6. 启动后端服务
+
+先启动业务服务，最后启动网关。以下堆内存配置适用于 4C16G：
+
+```bash
+cd /opt/mall-swarm
+COMMON='--spring.profiles.active=prod --logging.config=file:/opt/mall-swarm/deploy/logback-console.xml --logstash.enableInnerLog=false'
+
+nohup java -Xms256m -Xmx512m -jar mall-admin/target/mall-admin-1.0-SNAPSHOT.jar $COMMON \
+  --minio.publicEndpoint="http://${SERVER_IP}/minio" > logs/mall-admin.log 2>&1 & echo $! > run/mall-admin.pid
+
+nohup java -Xms128m -Xmx256m -jar mall-analytics/target/mall-analytics-1.0-SNAPSHOT.jar \
+  --spring.datasource.url='jdbc:mysql://127.0.0.1:3306/mall?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false' \
+  --spring.datasource.username=reader --spring.datasource.password="${DB_APP_PASSWORD}" \
+  --spring.rabbitmq.host=127.0.0.1 --spring.rabbitmq.virtual-host=/mall \
+  --spring.rabbitmq.username=mall --spring.rabbitmq.password=mall \
+  --spring.data.mongodb.host=127.0.0.1 --spring.data.mongodb.database=mall-port \
+  --analytics.rebuild.fixed-delay-ms=300000 > logs/mall-analytics.log 2>&1 & echo $! > run/mall-analytics.pid
+
+nohup java -Xms192m -Xmx384m -jar mall-auth/target/mall-auth-1.0-SNAPSHOT.jar $COMMON > logs/mall-auth.log 2>&1 & echo $! > run/mall-auth.pid
+nohup java -Xms128m -Xmx256m -jar mall-demo/target/mall-demo-1.0-SNAPSHOT.jar $COMMON > logs/mall-demo.log 2>&1 & echo $! > run/mall-demo.pid
+nohup java -Xms192m -Xmx384m -jar mall-monitor/target/mall-monitor-1.0-SNAPSHOT.jar $COMMON > logs/mall-monitor.log 2>&1 & echo $! > run/mall-monitor.pid
+nohup java -Xms256m -Xmx512m -jar mall-portal/target/mall-portal-1.0-SNAPSHOT.jar $COMMON > logs/mall-portal.log 2>&1 & echo $! > run/mall-portal.pid
+
+nohup java -Xms128m -Xmx256m -jar mall-recommend/target/mall-recommend-1.0-SNAPSHOT.jar \
+  --spring.datasource.url='jdbc:mysql://127.0.0.1:3306/mall?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false' \
+  --spring.datasource.username=reader --spring.datasource.password="${DB_APP_PASSWORD}" \
+  > logs/mall-recommend.log 2>&1 & echo $! > run/mall-recommend.pid
+
+nohup java -Xms256m -Xmx512m -jar mall-search/target/mall-search-1.0-SNAPSHOT.jar $COMMON > logs/mall-search.log 2>&1 & echo $! > run/mall-search.pid
+
+sleep 20
+nohup java -Xms192m -Xmx384m -jar mall-gateway/target/mall-gateway-1.0-SNAPSHOT.jar $COMMON \
+  --server.port=8202 > logs/mall-gateway.log 2>&1 & echo $! > run/mall-gateway.pid
+```
+
+查看进程和监听端口：
+
+```bash
+pgrep -af 'java.*mall-.*\.jar'
+ss -lntp | grep -E ':(8080|8081|8082|8085|8101|8202|8206|8207|8401)'
+```
+
+### 7. 部署前端静态文件
+
+```bash
+mkdir -p /usr/share/nginx/{mall-admin-web,mall-dashboard,mall-app-web}
+cp -a mall-admin-web/. /usr/share/nginx/mall-admin-web/
+cp -a dashboard/. /usr/share/nginx/mall-dashboard/
+cp -a mall-app-web/. /usr/share/nginx/mall-app-web/
+chown -R www-data:www-data /usr/share/nginx/mall-admin-web /usr/share/nginx/mall-dashboard /usr/share/nginx/mall-app-web
+```
+
+### 8. 配置 Nginx
+
+创建 `/etc/nginx/sites-available/mall-swarm`：
+
+```nginx
+server {
+    listen 80 default_server;
+    listen 8201;
+    listen [::]:80 default_server;
+    listen [::]:8201;
+    server_name _;
+
+    root /usr/share/nginx/mall-admin-web;
+    index index.html;
+    client_max_body_size 20m;
+
+    location /dashboard/ {
+        alias /usr/share/nginx/mall-dashboard/;
+        index index.html;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        try_files $uri $uri/ /index.html;
+    }
+    location = /dashboard { return 301 /dashboard/; }
+
+    location /app/ {
+        alias /usr/share/nginx/mall-app-web/;
+        index index.html;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        try_files $uri $uri/ /app/index.html;
+    }
+    location = /app { return 301 /app/; }
+
+    location / { try_files $uri $uri/ /index.html; }
+
+    location /minio/ {
+        proxy_pass http://127.0.0.1:9000/;
+        proxy_set_header Host 127.0.0.1:9000;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+    location /app/minio/ {
+        proxy_pass http://127.0.0.1:9000/;
+        proxy_set_header Host 127.0.0.1:9000;
+    }
+    location /mall/ {
+        proxy_pass http://macro-oss.oss-cn-shenzhen.aliyuncs.com/mall/;
+        proxy_set_header Host macro-oss.oss-cn-shenzhen.aliyuncs.com;
+    }
+
+    location /mall-analytics/ {
+        proxy_pass http://127.0.0.1:8206/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+    location /mall-recommend/ {
+        proxy_pass http://127.0.0.1:8207/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    location /mall-admin/ {
+        proxy_pass http://127.0.0.1:8202/mall-admin/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+    location /mall-portal/ {
+        proxy_pass http://127.0.0.1:8202/mall-portal/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+    location /mall-search/ {
+        proxy_pass http://127.0.0.1:8202/mall-search/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
+
+启用站点：
+
+```bash
+rm -f /etc/nginx/sites-enabled/default
+ln -sfn /etc/nginx/sites-available/mall-swarm /etc/nginx/sites-enabled/mall-swarm
+nginx -t
+systemctl reload nginx
+```
+
+## 部署验证
+
+### 1. 服务健康检查
+
+```bash
+curl -fsS http://127.0.0.1:8080/actuator/health
+curl -fsS http://127.0.0.1:8085/actuator/health
+curl -fsS http://127.0.0.1:8202/actuator/health
+curl -fsS http://127.0.0.1:8206/actuator/health
+curl -fsS http://127.0.0.1:8207/actuator/health
+curl -fsS 'http://127.0.0.1:8207/recommend/hot?limit=5'
+```
+
+### 2. 公网检查
+
+```bash
+curl -I "http://${SERVER_IP}/"
+curl -I "http://${SERVER_IP}/app/"
+curl -I "http://${SERVER_IP}/dashboard/"
+curl -fsS "http://${SERVER_IP}/mall-recommend/recommend/hot?limit=5"
+```
+
+浏览器访问：
+
+```text
+管理后台：http://服务器IP/
+用户端 H5：http://服务器IP/app/
+分析看板：http://服务器IP/dashboard/
+```
+
+### 3. 数据检查
+
+```bash
+docker exec mysql mysql -ureader -p"${DB_APP_PASSWORD}" mall -e "
+SELECT COUNT(*) AS members FROM ums_member;
+SELECT COUNT(*) AS products FROM pms_product;
+SELECT COUNT(*) AS events FROM user_behavior_event;
+SELECT COUNT(*) AS profiles FROM user_profile;
+SELECT COUNT(*) AS recommendations FROM recommend_result;
+SELECT COUNT(*) AS evaluations FROM recommend_evaluation;"
+```
+
+## 离线推荐训练与发布
+
+模型训练不是启动在线系统的必需步骤。需要重新训练时，先将淘宝 `UserBehavior.csv` 放到服务器或本机，再执行：
+
+```bash
+cd /opt/mall-swarm
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r ml-recommend/requirements.txt
+
+python ml-recommend/sample_taobao.py \
+  --input /data/taobao/UserBehavior.csv \
+  --output-dir ml-recommend/data \
+  --max-users 5000 --max-items 10000 --max-events 300000 \
+  --recent-days 9 --start-ts 1511539200 --end-ts 1512316799
+
+python ml-recommend/train_itemcf.py \
+  --events ml-recommend/data/sampled_events.csv \
+  --output ml-recommend/output/itemcf_recommendations.csv --topn 10
+
+python ml-recommend/train_ncf.py \
+  --events ml-recommend/data/sampled_events.csv \
+  --output ml-recommend/output/ncf_recommendations.csv \
+  --model-output ml-recommend/output/ncf_model.pt \
+  --topn 10 --embedding-dim 32 --epochs 6
+
+python ml-recommend/train_deepfm.py \
+  --events ml-recommend/data/sampled_events.csv \
+  --output ml-recommend/output/deepfm_recommendations.csv \
+  --model-output ml-recommend/output/deepfm_model.pt \
+  --topn 10 --embedding-dim 16 --epochs 6
+```
+
+使用 `ml-recommend/export_recommend_sql.py` 完成淘宝 ID 到本地会员/商品 ID 的映射和 SQL 导出，再导入 MySQL：
+
+```bash
+docker exec -i mysql mysql --default-character-set=utf8mb4 -uroot -p"${DB_ROOT_PASSWORD}" mall \
+  < ml-recommend/output/model_recommend_result.sql
+```
+
+详细参数见 [`ml-recommend/README.md`](ml-recommend/README.md)。服务器只需要导入 SQL；`.pt` 文件不需要复制给在线 Java 服务。
+
+## 数据迁移与备份
+
+从旧服务器迁移时，建议代码走 Git，数据库和组件数据单独备份：
+
+```bash
+# 旧服务器导出
+docker exec mysql mysqldump -uroot -p'旧密码' --single-transaction --routines --triggers mall > mall.sql
+tar -czf mall-component-data.tar.gz /mydata/minio/data /mydata/mongo/db
+
+# 新服务器恢复 MySQL
+docker exec -i mysql mysql -uroot -p'新密码' mall < mall.sql
+```
+
+迁移前后分别统计会员、商品、订单、行为、画像和推荐表数量；确认新服务器正常后再停止旧服务器写入，避免两边数据分叉。
+
+## 常用运维命令
+
+```bash
+# 基础组件
+docker compose -f /opt/mall-swarm/deploy/infra/docker-compose.yml ps
+docker compose -f /opt/mall-swarm/deploy/infra/docker-compose.yml logs --tail=100
+docker compose -f /opt/mall-swarm/deploy/infra/docker-compose.yml restart
+
+# Java 服务
+pgrep -af 'java.*mall-.*\.jar'
+tail -f /opt/mall-swarm/logs/mall-analytics.log
+tail -f /opt/mall-swarm/logs/mall-recommend.log
+
+# 停止单个服务，然后按“启动后端服务”中的对应命令重启
+kill "$(cat /opt/mall-swarm/run/mall-analytics.pid)"
+
+# Nginx
+nginx -t
+systemctl reload nginx
+journalctl -u nginx -n 100 --no-pager
+```
+
+## 常见问题
+
+### Nacos 连接失败
+
+检查 `nacos-registry` 是否解析到 `127.0.0.1`，并确认 Nacos 配置已导入：
+
+```bash
+getent hosts nacos-registry
+curl -I http://127.0.0.1:8848/nacos/
+tail -n 100 logs/mall-gateway.log
+```
+
+### 页面能打开但接口报 502
+
+检查 `8202/8206/8207` 端口和相应 Java 日志。Nginx 只负责反向代理，不会自动启动 Java 服务。
+
+### 商品图片不显示
+
+- 新上传图片：检查 MinIO `mall` 桶、公开读取策略和 `/minio/` 代理。
+- 原始商品图片：检查服务器是否能访问 `macro-oss.oss-cn-shenzhen.aliyuncs.com`。
+- 数据迁移后图片缺失：除 MySQL 外还必须迁移 `/mydata/minio/data`。
+
+### 推荐结果为空
+
+```bash
+docker exec -i mysql mysql -uroot -p"${DB_ROOT_PASSWORD}" mall < data-analysis/build_profiles.sql
+docker exec -i mysql mysql -uroot -p"${DB_ROOT_PASSWORD}" mall < data-analysis/build_recommend_result.sql
+curl -fsS 'http://127.0.0.1:8207/recommend/hot?limit=10'
+```
+
+深度学习推荐仍为空时，确认已导入模型导出的 SQL，并检查 `recommend_result.recommend_type` 是否为 `model_itemcf`、`model_ncf` 或 `model_deepfm`。
+
+### Elasticsearch 无法启动
+
+```bash
+sysctl vm.max_map_count
+chmod 777 /mydata/elasticsearch/data
+docker logs --tail=100 elasticsearch
+```
+
+## 相关文档
+
+- [`document/sql/analytics_tables.sql`](document/sql/analytics_tables.sql)：行为、画像、推荐和评估表结构。
+- [`data-analysis/build_profiles.sql`](data-analysis/build_profiles.sql)：RFM 与用户/商品画像构建。
+- [`data-analysis/build_recommend_result.sql`](data-analysis/build_recommend_result.sql)：热门和规则推荐生成。
+- [`ml-recommend/README.md`](ml-recommend/README.md)：淘宝数据抽样与模型训练参数。
+- [`LICENSE`](LICENSE)：Apache License 2.0。
+
+## 许可证与来源
+
+本项目基于 `macrozheng/mall-swarm` 进行课程二次开发，遵循 [Apache License 2.0](LICENSE)。课程新增代码和文档用于“基于电商用户行为数据的商品推荐与用户行为分析系统”教学、演示与研究。
